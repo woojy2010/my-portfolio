@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jae Woo's Portfolio</title>
+    
+    <!-- Google Fonts: Cinzel (Classic Serif for Headings) & Inter (Clean Sans-Serif for body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Design Tokens - Barnato Green & Brass Palette */
+        :root {
+            --barnato-dark: #050e0a;
+            --barnato-base: #0a1f16;
+            --barnato-panel: rgba(13, 31, 23, 0.75);
+            --barnato-hover: rgba(197, 160, 89, 0.08);
+            --brass-primary: #c5a059;
+            --brass-bright: #e5c07b;
+            --brass-dim: #998358;
+            --brass-border: rgba(197, 160, 89, 0.25);
+            --brass-border-light: rgba(197, 160, 89, 0.12);
+            --text-cream: #f4f1ea;
+            --text-muted: #a6a092;
+            --shadow-soft: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* Reset & Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--barnato-dark);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(197, 160, 89, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(197, 160, 89, 0.03) 0%, transparent 50%);
+            color: var(--text-cream);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(5, 14, 10, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--brass-dim);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--brass-primary);
+        }
+
+        /* Desktop Split View Container */
+        .workspace {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Left Side: Interactive Preview Sandbox */
+        .preview-pane {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            background-color: rgba(5, 14, 10, 0.6);
+            border-right: 1px solid var(--brass-border-light);
+            position: relative;
+        }
+
+        /* Premium Browser Mockup Frame */
+        .browser-mockup {
+            width: 100%;
+            height: 100%;
+            max-width: 1200px;
+            background-color: var(--barnato-base);
+            border: 1px solid var(--brass-border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-soft);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
+        }
+
+        .browser-mockup:hover {
+            box-shadow: 0 15px 45px rgba(197, 160, 89, 0.08), var(--shadow-soft);
+        }
+
+        /* Mock Browser Header */
+        .browser-header {
+            height: 48px;
+            background-color: rgba(10, 26, 18, 0.9);
+            border-bottom: 1px solid var(--brass-border-light);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+        }
+
+        /* macOS Window Buttons */
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .win-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            opacity: 0.8;
+        }
+        .win-close { background-color: #ff5f56; }
+        .win-min { background-color: #ffbd2e; }
+        .win-max { background-color: #27c93f; }
+
+        /* Mock Browser Address Bar */
+        .address-bar {
+            flex: 1;
+            height: 28px;
+            background-color: rgba(5, 14, 10, 0.7);
+            border: 1px solid var(--brass-border-light);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: monospace;
+            gap: 8px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .address-lock {
+            width: 10px;
+            height: 10px;
+            fill: var(--brass-primary);
+        }
+
+        .address-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+        }
+
+        /* Sandbox Sandbox Frame */
+        .iframe-container {
+            flex: 1;
+            position: relative;
+            background-color: #ffffff; /* Default web page container background */
+        }
+
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* Loading Indicator Overlay */
+        .iframe-loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--barnato-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .iframe-loader.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(197, 160, 89, 0.1);
+            border-top: 2px solid var(--brass-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Right Side: Navigation & Info Panel */
+        .sidebar {
+            width: 420px;
+            background-color: var(--barnato-panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            justify-content: space-between;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.25);
+            position: relative;
+            z-index: 5;
+        }
+
+        /* Header Information */
+        header {
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: var(--brass-bright);
+            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 10px rgba(197, 160, 89, 0.15);
+        }
+
+        header p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-weight: 300;
+            border-left: 2px solid var(--brass-primary);
+            padding-left: 14px;
+            line-height: 1.5;
+        }
+
+        /* Project Navigation List */
+        .project-nav {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 30px;
+            padding-right: 8px;
+        }
+
+        .project-nav h2 {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--brass-primary);
+            margin-bottom: 20px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--brass-border-light);
+        }
+
+        .project-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* List Items */
+        .project-item {
+            cursor: pointer;
+        }
+
+        .project-link {
+            display: flex;
+            flex-direction: column;
+            padding: 16px 20px;
+            background-color: rgba(5, 14, 10, 0.3);
+            border: 1px solid var(--brass-border-light);
+            border-radius: 8px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Item Hover States */
+        .project-link:hover {
+            background-color: var(--barnato-hover);
+            border-color: rgba(197, 160, 89, 0.4);
+            transform: translateX(4px);
+        }
+
+        /* Item Active State (Desktop Only) */
+        .project-item.active .project-link {
+            background-color: rgba(197, 160, 89, 0.08);
+            border-color: var(--brass-primary);
+            box-shadow: 0 0 15px rgba(197, 160, 89, 0.1);
+        }
+
+        .project-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text-cream);
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: color 0.3s ease;
+        }
+
+        .project-link:hover .project-title,
+        .project-item.active .project-title {
+            color: var(--brass-bright);
+        }
+
+        /* Custom Arrow Icon */
+        .project-title::after {
+            content: '→';
+            font-size: 1.1rem;
+            color: var(--brass-primary);
+            transition: transform 0.3s ease, color 0.3s ease;
+        }
+
+        .project-link:hover .project-title::after {
+            transform: translateX(4px);
+            color: var(--brass-bright);
+        }
+
+        .project-item.active .project-title::after {
+            transform: translateX(4px) scale(1.1);
+        }
+
+        .project-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 300;
+            line-height: 1.4;
+        }
+
+        /* Footer styling */
+        footer {
+            font-size: 0.75rem;
+            color: var(--brass-dim);
+            border-top: 1px solid var(--brass-border-light);
+            padding-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        footer a {
+            color: var(--brass-primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        footer a:hover {
+            color: var(--brass-bright);
+            text-decoration: underline;
+        }
+
+        /* RESPONSIVE LAYOUT (Mobile Styles) */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 360px;
+                padding: 30px;
+            }
+            .preview-pane {
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                align-items: flex-start;
+                overflow-y: auto;
+            }
+
+            .workspace {
+                flex-direction: column;
+                height: auto;
+                overflow: visible;
+            }
+
+            /* Hide preview pane completely on mobile */
+            .preview-pane {
+                display: none;
+            }
+
+            /* Sidebar becomes full width main panel */
+            .sidebar {
+                width: 100%;
+                min-height: 100vh;
+                box-shadow: none;
+                padding: 32px 20px;
+                justify-content: flex-start;
+            }
+
+            header {
+                margin-bottom: 30px;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .project-nav h2 {
+                font-size: 1rem;
+            }
+
+            .project-link:hover {
+                transform: none; /* Disable shift animation on mobile touch */
+            }
+
+            footer {
+                margin-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="workspace">
+        
+        <!-- Left Pane: Interactive Preview Sandbox (Hidden on Mobile) -->
+        <main class="preview-pane">
+            <div class="browser-mockup">
+                <!-- Browser Title & Control Bar -->
+                <div class="browser-header">
+                    <div class="window-controls">
+                        <span class="win-btn win-close"></span>
+                        <span class="win-btn win-min"></span>
+                        <span class="win-btn win-max"></span>
+                    </div>
+                    <div class="address-bar">
+                        <!-- Lock Icon SVG -->
+                        <svg class="address-lock" viewBox="0 0 24 24">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                        </svg>
+                        <span class="address-text" id="browser-address">localhost:3000/project1/index.html</span>
+                    </div>
+                </div>
+                
+                <!-- Actual Sandbox Frame -->
+                <div class="iframe-container">
+                    <div class="iframe-loader" id="loader">
+                        <div class="spinner"></div>
+                    </div>
+                    <iframe id="preview-frame" src="about:blank" title="Project Preview Frame"></iframe>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Pane: Titles & Navigation Sidebar -->
+        <aside class="sidebar">
+            <div>
+                <header>
+                    <h1>Jae Woo's Portfolio</h1>
+                    <p>Exploring the boundary of code and interaction.</p>
+                </header>
+
+                <nav class="project-nav">
+                    <h2>Selected Projects</h2>
+                    <ul class="project-list">
+                        <!-- Project 1 -->
+                        <li class="project-item active" data-path="project1/index.html">
+                            <a href="project1/index.html" class="project-link">
+                                <span class="project-title">Interactive Nebula</span>
+                                <span class="project-desc">Canvas API를 이용한 인터랙티브 성운 시뮬레이션</span>
+                            </a>
+                        </li>
+                        <!-- Project 2 -->
+                        <li class="project-item" data-path="project2/index.html">
+                            <a href="project2/index.html" class="project-link">
+                                <span class="project-title">Data Flow Visualizer</span>
+                                <span class="project-desc">데이터의 흐름을 시각화한 물리 엔진 프로젝트</span>
+                            </a>
+                        </li>
+                        <!-- Project 3 -->
+                        <li class="project-item" data-path="project3/index.html">
+                            <a href="project3/index.html" class="project-link">
+                                <span class="project-title">Typography Motion</span>
+                                <span class="project-desc">마우스 움직임에 반응하는 타이포그래피 아트</span>
+                            </a>
+                        </li>
+                        <!-- Project 4 -->
+                        <li class="project-item" data-path="project4/index.html">
+                            <a href="project4/index.html" class="project-link">
+                                <span class="project-title">Particle Storm</span>
+                                <span class="project-desc">대규모 입자 시스템을 제어하는 웹 애니메이션</span>
+                            </a>
+                        </li>
+                        <!-- Project 5 -->
+                        <li class="project-item" data-path="project5/index.html">
+                            <a href="project5/index.html" class="project-link">
+                                <span class="project-title">Neural Network Art</span>
+                                <span class="project-desc">인공신경망 가시화를 통한 미디어 아트</span>
+                            </a>
+                        </li>
+                        <!-- Project 6 -->
+                        <li class="project-item" data-path="project6/index.html">
+                            <a href="project6/index.html" class="project-link">
+                                <span class="project-title">Generative Geometry</span>
+                                <span class="project-desc">수학적 알고리즘으로 생성되는 기하학 패턴</span>
+                            </a>
+                        </li>
+                        <!-- Project 7 -->
+                        <li class="project-item" data-path="project7/index.html">
+                            <a href="project7/index.html" class="project-link">
+                                <span class="project-title">Liquid Smooth Transition</span>
+                                <span class="project-desc">부드럽고 유기적인 액체 질감의 트랜지션 효과</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+
+            <footer>
+                <span>© 2026 Jae Woo</span>
+                <span>Designed with <a href="#" onclick="return false;">AGY</a></span>
+            </footer>
+        </aside>
+
+    </div>
+
+    <!-- JavaScript to Handle Interactive Preview Switching -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const previewFrame = document.getElementById("preview-frame");
+            const browserAddress = document.getElementById("browser-address");
+            const loader = document.getElementById("loader");
+            const projectItems = document.querySelectorAll(".project-item");
+            const projectLinks = document.querySelectorAll(".project-link");
+
+            // Utility to detect if the page is currently in mobile width
+            const isMobile = () => window.innerWidth <= 768;
+
+            // Load project into preview iframe
+            function loadProject(item) {
+                if (!item) return;
+                
+                const relativePath = item.getAttribute("data-path");
+                
+                // Show loading spinner
+                loader.classList.add("active");
+                
+                // Update Address Bar UI
+                browserAddress.textContent = `localhost:3000/${relativePath}`;
+                
+                // Set frame src
+                previewFrame.src = relativePath;
+                
+                // Toggle active class on list
+                projectItems.forEach(el => el.classList.remove("active"));
+                item.classList.add("active");
+            }
+
+            // Iframe finish loading callback
+            previewFrame.addEventListener("load", () => {
+                loader.classList.remove("active");
+            });
+
+            // Set up click events on project links
+            projectLinks.forEach(link => {
+                link.addEventListener("click", (e) => {
+                    const item = link.closest(".project-item");
+                    
+                    // If in Desktop view, intercept click and load inside iframe
+                    if (!isMobile()) {
+                        e.preventDefault();
+                        
+                        // Prevent loading the same active page twice
+                        if (!item.classList.contains("active")) {
+                            loadProject(item);
+                        }
+                    }
+                    // If in Mobile view, allow standard link behavior (navigation to subfolder index.html)
+                });
+            });
+
+            // Initialize: load the first project by default (only on desktop)
+            const handleInit = () => {
+                if (!isMobile()) {
+                    const activeItem = document.querySelector(".project-item.active") || projectItems[0];
+                    loadProject(activeItem);
+                } else {
+                    // Clean iframe src if mobile to save bandwith/memory
+                    previewFrame.src = "about:blank";
+                }
+            };
+
+            // Call initialization
+            handleInit();
+
+            // Handle browser resize events to load default iframe on transition to desktop
+            let lastWidth = window.innerWidth;
+            window.addEventListener("resize", () => {
+                const currentWidth = window.innerWidth;
+                
+                // Check if layout switched from mobile to desktop or vice versa
+                if ((lastWidth <= 768 && currentWidth > 768) || (lastWidth > 768 && currentWidth <= 768)) {
+                    handleInit();
+                }
+                lastWidth = currentWidth;
+            });
+        });
+    </script>
+</body>
+</html>
