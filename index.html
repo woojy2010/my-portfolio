@@ -47,7 +47,7 @@
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-barnato-dark);
-            background-image: radial-gradient(circle at 50% 30%, rgba(205, 163, 95, 0.02) 0%, transparent 60%);
+            background-image: radial-gradient(circle at 50% 30%, rgba(24, 21, 16, 0.02) 0%, transparent 60%);
             color: var(--text-primary);
             line-height: 1.6;
             min-height: 100vh;
@@ -81,6 +81,7 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+            transition: var(--transition-smooth);
         }
 
         /* Left Pane: Interactive Preview Sandbox */
@@ -92,6 +93,7 @@
             padding: 40px;
             background-color: var(--bg-barnato-dark);
             position: relative;
+            transition: var(--transition-smooth);
         }
 
         /* Sleek Safari-like Browser Mockup */
@@ -137,7 +139,21 @@
         }
         .win-close { background-color: #ff5f56; }
         .win-min { background-color: #ffbd2e; }
-        .win-max { background-color: #27c93f; }
+        .win-max { 
+            background-color: #27c93f; 
+            cursor: pointer;
+            position: relative;
+        }
+        .win-max:hover::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 6px;
+            height: 6px;
+            background-color: rgba(0,0,0,0.5);
+            border-radius: 50%;
+        }
 
         /* Minimal Centered Address Bar */
         .address-bar {
@@ -219,6 +235,43 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Floating Fullscreen Toggle Button */
+        .fullscreen-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 30;
+            background-color: rgba(10, 23, 18, 0.85);
+            border: 1px solid var(--brass-border);
+            color: var(--text-primary);
+            border-radius: 20px;
+            padding: 8px 14px;
+            font-size: 0.72rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: var(--transition-smooth);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .fullscreen-btn:hover {
+            border-color: var(--brass-solid);
+            color: var(--brass-solid);
+            background-color: rgba(10, 23, 18, 0.95);
+            transform: translateY(-2px);
+        }
+
+        .fullscreen-btn svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+            transition: transform 0.3s ease;
+        }
+
         /* Right Side: Navigation & Info Sidebar */
         .sidebar {
             width: 380px;
@@ -230,6 +283,7 @@
             justify-content: space-between;
             position: relative;
             z-index: 5;
+            transition: var(--transition-smooth);
         }
 
         /* Header (Clean Typography hierarchy) */
@@ -569,6 +623,33 @@
             font-weight: bold;
         }
 
+        /* --- FULLPAGE/FULLSCREEN STATE CLASSES --- */
+        .workspace.preview-expanded .sidebar {
+            width: 0px !important;
+            padding: 0px !important;
+            border-left: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            overflow: hidden !important;
+        }
+
+        .workspace.preview-expanded .preview-pane {
+            padding: 0px !important;
+            flex: 1 1 100% !important;
+        }
+
+        .workspace.preview-expanded .browser-mockup {
+            max-width: 100% !important;
+            height: 100vh !important;
+            border-radius: 0px !important;
+            border: none !important;
+        }
+
+        .workspace.preview-expanded .browser-header {
+            background-color: var(--bg-barnato-panel);
+            padding: 0 24px;
+        }
+
         /* Responsive Breakpoints (Desktop Utilities) */
         @media (min-width: 769px) {
             .only-mobile {
@@ -643,13 +724,13 @@
         
         <!-- Left Side: Interactive Preview Pane (Hidden on Mobile) -->
         <main class="preview-pane">
-            <div class="browser-mockup">
+            <div class="browser-mockup" id="browser-window">
                 <!-- Mock Header Safari-style -->
                 <div class="browser-header">
                     <div class="window-controls">
                         <span class="win-btn win-close"></span>
                         <span class="win-btn win-min"></span>
-                        <span class="win-btn win-max"></span>
+                        <span class="win-btn win-max" id="window-maximize-btn" title="전체 화면 토글"></span>
                     </div>
                     <div class="address-bar">
                         <!-- Tiny Vector Padlock -->
@@ -666,12 +747,21 @@
                         <div class="spinner"></div>
                     </div>
                     <iframe id="preview-frame" src="about:blank" title="Project Sandbox View"></iframe>
+                    
+                    <!-- Floating Screen Expansion Toggle Pill -->
+                    <button class="fullscreen-btn" id="fullscreen-toggle-btn" title="전체 화면 토글">
+                        <!-- SVG Expand Icon -->
+                        <svg id="fullscreen-icon" viewBox="0 0 24 24">
+                            <path id="svg-icon-path" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                        </svg>
+                        <span id="fullscreen-text">전체 화면</span>
+                    </button>
                 </div>
             </div>
         </main>
 
         <!-- Right Side: Sidebar Navigation Panel -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar-panel">
             <div>
                 <header>
                     <h1>Jae Woo's Portfolio</h1>
@@ -682,15 +772,15 @@
                     <h2>Selected Projects</h2>
                     <ul class="project-list">
                         <!-- Project 1 (Visible on both) -->
-                        <li class="project-item active" data-path="HEATHXCAP.html"
-                            data-title="달항아리"
-                            data-why="달항아리 실험하고 가시화하기 위해 제작했습니다."
-                            data-tech="HTML5 Canvas, WebGL, Vanilla JS, Vector Math"
-                            data-features="5,000개 달항아리">
+                        <li class="project-item active" data-path="project1/HEATHXCAP.html"
+                            data-title="Interactive Nebula"
+                            data-why="
+                            data-tech="HTML"
+                            data-features="샌프란 시스코 유명 도자기 맟 타일 회사 Heath Ceramics(Heath tile)를 주제로 만들어본 데모 사이트 입니다. 3D 모델등을 사용하여 만들었습니다 ">
                             <div class="project-item-inner">
                                 <a href="project1/HEATHXCAP.html" class="project-link">
-                                    <span class="project-title">달항아리</span>
-                                    <span class="project-desc">달항아리</span>
+                                    <span class="project-title">Interactive Webpage</span>
+                                    <span class="project-desc">Simplicity in crafting sophistication</span>
                                 </a>
                                 <button class="info-btn" title="자세히 보기">i</button>
                             </div>
@@ -785,7 +875,7 @@
 
             <footer>
                 <span>© 2026 Jae Woo</span>
-                <a href="#" class="btn-credit" onclick="return false;">Designed with AGY</a>
+                <a href="#" class="btn-credit" onclick="return false;">Imagined with AI</a>
             </footer>
         </aside>
 
@@ -835,6 +925,17 @@
             const modalTech = document.getElementById("modal-tech");
             const modalFeatures = document.getElementById("modal-features");
             const infoButtons = document.querySelectorAll(".info-btn");
+
+            // Fullscreen Elements
+            const workspace = document.querySelector(".workspace");
+            const fullscreenToggleBtn = document.getElementById("fullscreen-toggle-btn");
+            const fullscreenText = document.getElementById("fullscreen-text");
+            const svgIconPath = document.getElementById("svg-icon-path");
+            const windowMaximizeBtn = document.getElementById("window-maximize-btn");
+
+            // SVG Paths for Fullscreen State
+            const pathExpand = "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z";
+            const pathCollapse = "M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z";
 
             // Utility to detect if the page is currently in mobile width
             const isMobile = () => window.innerWidth <= 768;
@@ -943,6 +1044,25 @@
                 }
             });
 
+            // Toggles Fullpage expanded view on desktop
+            function toggleFullscreen() {
+                if (isMobile()) return;
+                
+                const isExpanded = workspace.classList.toggle("preview-expanded");
+                
+                if (isExpanded) {
+                    fullscreenText.textContent = "화면 축소";
+                    svgIconPath.setAttribute("d", pathCollapse);
+                } else {
+                    fullscreenText.textContent = "전체 화면";
+                    svgIconPath.setAttribute("d", pathExpand);
+                }
+            }
+
+            // Bind toggle buttons
+            fullscreenToggleBtn.addEventListener("click", toggleFullscreen);
+            windowMaximizeBtn.addEventListener("click", toggleFullscreen);
+
             // Initialize: load the first visible project by default (only on desktop)
             const handleInit = () => {
                 if (!isMobile()) {
@@ -956,6 +1076,8 @@
                 } else {
                     // Clean iframe src if mobile to save bandwidth/memory
                     previewFrame.src = "about:blank";
+                    // Reset fullscreen state if resizing to mobile
+                    workspace.classList.remove("preview-expanded");
                 }
             };
 
