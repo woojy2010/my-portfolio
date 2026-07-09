@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="HEATHXCAPSULE Object No.01 — a painting, fired in clay. Tile → Moon Jar → Flask, under continuous study.">
+<meta name="theme-color" content="#eceeec">
+<meta name="color-scheme" content="only light">
+<meta property="og:title" content="HEATHXCAPSULE — Object No.01">
+<meta property="og:description" content="A painting, fired in clay. Tile → Moon Jar → Flask, under continuous study.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='12' y='4' width='40' height='56' rx='7' fill='%231c1a17'/%3E%3Ccircle cx='32' cy='36' r='8' fill='%23a83232'/%3E%3C/svg%3E">
+<title>HEATHXCAPSULE — Object No.01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": { "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
+</script>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/geometries/RoundedBoxGeometry.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js">
+<style>
+  :root{
+    --fog:#eceeec; --fog-hi:#f6f7f5; --fog-lo:#e0e2df;
+    --ink:#1c1a17; --mute:#63645c; --faint:#83847b; --line:rgba(24,22,18,0.12);
+    --accent:#a83232; --accent-hi:#c9433f; --ease:cubic-bezier(0.22,1,0.36,1);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} }
+  body{margin:0; background:var(--fog); color:var(--ink); font-family:'Space Grotesk',sans-serif; font-weight:300;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:hidden;}
+  a{color:inherit; text-decoration:none;}
+  ::selection{background:rgba(168,50,50,0.14);}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px;}
+  ::placeholder{color:var(--faint);}
+  .lbl{font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.22em; text-transform:uppercase; color:var(--mute);}
+  .accent{color:var(--accent);}
+  .sr{position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+
+  #scene{position:fixed; inset:0; z-index:0; display:block; touch-action:pan-y; opacity:0; transition:opacity 1s var(--ease);}
+  #scene.on{opacity:1;}
+  .fog-v{position:fixed; inset:0; z-index:1; pointer-events:none; background:radial-gradient(120% 90% at 50% 34%, transparent 52%, rgba(224,226,223,0.55) 100%);}
+  .grain{position:fixed; inset:0; z-index:2; pointer-events:none; opacity:0.04; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");}
+
+  nav.top{position:fixed; top:0; left:0; right:0; z-index:20; display:flex; align-items:center; justify-content:space-between; padding:clamp(16px,2vw,26px) clamp(20px,4vw,56px);}
+  .brand{font-size:13px; letter-spacing:0.3em; text-transform:uppercase; font-weight:400;} .brand b{font-weight:500;}
+  .nav-r{display:flex; align-items:center; gap:clamp(16px,2.4vw,32px);}
+  .nav-r a{font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--mute); transition:color .35s;}
+  .nav-r a:hover{color:var(--ink);}
+  .req{border:1px solid var(--line); border-radius:2px; padding:9px 16px; color:var(--ink)!important; transition:.4s;}
+  .req:hover{border-color:var(--accent); background:rgba(168,50,50,0.05);}
+  @media (max-width:560px){ .nav-r a:not(.req){display:none;} .brand{letter-spacing:0.2em;} }
+
+  .hero{position:relative; z-index:5; min-height:100svh; display:grid; grid-template-columns:1.05fr 1fr; align-items:center; padding:0 clamp(20px,4vw,56px); pointer-events:none;}
+  .hero .col{pointer-events:auto;}
+  .eyebrow{margin:0 0 22px;}
+  h1{font-weight:300; font-size:clamp(2.6rem,6.2vw,5.2rem); line-height:0.98; letter-spacing:-0.01em; margin:0;}
+  h1 .p{color:var(--accent); font-weight:400;}
+  .lede{margin:24px 0 0; max-width:38ch; font-size:clamp(13px,1.05vw,15px); line-height:1.65; color:var(--mute);}
+  .swatches{display:flex; gap:9px; margin:32px 0 0; flex-wrap:wrap; max-width:430px;}
+  .sw{width:46px; height:46px; border-radius:3px; border:1px solid var(--line); cursor:pointer; position:relative; background-size:cover; background-position:center; transition:transform .4s var(--ease), box-shadow .4s; padding:0;}
+  .sw:hover{transform:translateY(-2px);}
+  .sw[aria-checked="true"]{box-shadow:0 0 0 1px var(--ink), 0 8px 18px rgba(0,0,0,0.14);}
+  .sw[aria-checked="true"]::after{content:""; position:absolute; inset:-5px; border:1px solid var(--ink); border-radius:5px;}
+  .spec{margin:28px 0 0; border-top:1px solid var(--line); padding-top:15px; max-width:340px;}
+  .spec div{display:flex; justify-content:space-between; gap:16px; padding:5px 0; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.05em; color:var(--mute);}
+  .spec div b{color:var(--ink); font-weight:400;}
+  .cta{display:flex; gap:12px; margin-top:24px; flex-wrap:wrap;}
+  .btn{font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer; padding:13px 22px; border-radius:2px; border:1px solid var(--line); background:var(--fog-hi); color:var(--ink); transition:.4s;}
+  .btn.primary{background:var(--ink); color:var(--fog-hi); border-color:var(--ink);}
+  .btn.primary:hover{background:var(--accent); border-color:var(--accent);}
+  .btn:hover{border-color:var(--ink);}
+  .btn:disabled{opacity:0.4; cursor:default;}
+  .turn-hint{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--mute); margin:15px 0 0;}
+  .stage-col{position:relative; height:100svh;}
+  @media (max-width:860px){
+    .hero{grid-template-columns:1fr; text-align:center; padding-top:14vh; min-height:auto;}
+    .stage-col{display:block; height:58vh;}                 /* reserve lower space for the object on mobile */
+    .hero .col.text{background:rgba(240,242,240,0.7); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid var(--line);
+      border-radius:12px; padding:26px 22px; margin:0 auto;}                     /* scrim so text stays readable */
+    .swatches{justify-content:center; margin-left:auto; margin-right:auto;} .cta{justify-content:center;} .spec,.lede{margin-left:auto; margin-right:auto;}
+  }
+
+  .morph{position:relative; z-index:5; height:460vh; pointer-events:none;}
+  .cap{position:fixed; left:50%; bottom:11vh; transform:translate(-50%,14px); z-index:6; width:min(90vw,560px);
+    opacity:0; transition:opacity .55s var(--ease), transform .55s var(--ease); pointer-events:none; text-align:center;}
+  .cap.show{opacity:1; transform:translate(-50%,0);}
+  .cap .inner{background:rgba(240,242,240,0.72); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:14px; padding:22px 26px;}
+  .cap h2{font-weight:300; font-size:clamp(1.5rem,3.6vw,2.6rem); margin:0; letter-spacing:-0.01em;} .cap h2 em{font-style:normal; color:var(--accent);}
+  .cap p{margin:10px auto 0; max-width:40ch; font-size:13.5px; line-height:1.55; color:var(--mute);}
+
+  /* graduation rail — burette scale as morph progress + stage jumps */
+  .rail{position:fixed; right:clamp(14px,2.6vw,40px); top:50%; transform:translateY(-50%); z-index:9;
+    display:flex; align-items:stretch; gap:12px; opacity:0; transition:opacity .6s var(--ease); pointer-events:none;}
+  .rail.show{opacity:1; pointer-events:auto;}
+  .rail-track{position:relative; width:1px; background:var(--line);}
+  .rail-fill{position:absolute; top:0; left:0; width:1px; height:100%; background:var(--accent); transform:scaleY(0); transform-origin:top; transition:transform .18s linear;}
+  .rail-stages{display:flex; flex-direction:column; justify-content:space-between; padding:2px 0;}
+  .rail-tick{font-family:'Space Mono',monospace; font-size:9px; letter-spacing:0.18em; text-transform:uppercase;
+    background:none; border:0; padding:4px 2px; cursor:pointer; color:var(--faint); text-align:left; transition:color .35s;}
+  .rail-tick b{font-weight:700; color:inherit; margin-right:6px;}
+  .rail-tick:hover{color:var(--ink);}
+  .rail-tick[aria-current="true"]{color:var(--ink);} .rail-tick[aria-current="true"] b{color:var(--accent);}
+  @media (max-width:860px){ .rail{display:none;} }
+
+  section.block{position:relative; z-index:7; background:var(--fog); border-top:1px solid var(--line); padding:clamp(64px,10vh,120px) clamp(20px,4vw,56px);}
+  .wrap{max-width:1200px; margin:0 auto;}
+  .head{display:flex; justify-content:space-between; align-items:baseline; gap:20px; flex-wrap:wrap; margin-bottom:clamp(30px,5vh,54px);}
+  .head h2{font-weight:300; font-size:clamp(1.7rem,3.6vw,3rem); letter-spacing:-0.01em; margin:0; max-width:24ch;} .head h2 em{font-style:normal; color:var(--accent);}
+  .finishes{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .fin{border:1px solid var(--line); border-radius:5px; overflow:hidden; background:var(--fog-hi); cursor:pointer; transition:transform .4s var(--ease), box-shadow .4s, border-color .4s;}
+  .fin:hover{transform:translateY(-4px); box-shadow:0 16px 34px rgba(0,0,0,0.1); border-color:var(--ink);}
+  .fin .tex{aspect-ratio:1/1; background-size:cover; background-position:center;}
+  .fin .meta{padding:14px 14px 17px;}
+  .fin .meta h3{font-weight:400; font-size:0.98rem; margin:0;}
+  .fin .meta p{margin:7px 0 0; font-size:11.5px; line-height:1.5; color:var(--mute);}
+  .fin .meta .r{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:0.1em; color:var(--faint); margin-top:9px; display:block;}
+  @media (max-width:860px){ .finishes{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:460px){ .finishes{grid-template-columns:1fr;} }
+  .rv{opacity:0; transform:translateY(18px); transition:opacity .7s var(--ease), transform .7s var(--ease);}
+  .rv.in{opacity:1; transform:none;}
+  @media (prefers-reduced-motion:reduce){ .rv{opacity:1; transform:none; transition:none;} }
+
+  .access{display:grid; grid-template-columns:1fr 1fr; gap:clamp(28px,5vw,64px); align-items:center;}
+  .access .aside p{font-size:clamp(1.2rem,2.2vw,1.7rem); line-height:1.4; margin:0; max-width:20ch;}
+  .form{display:flex; flex-direction:column; gap:14px;}
+  .field label{display:block; margin-bottom:7px;}
+  .field input{width:100%; background:var(--fog-hi); border:1px solid var(--line); border-radius:3px; padding:14px 15px; font-family:inherit; font-size:14px; color:var(--ink); transition:.35s;}
+  .field input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(168,50,50,0.10);}
+  @media (max-width:720px){ .access{grid-template-columns:1fr;} }
+
+  footer{position:relative; z-index:7; background:var(--fog); border-top:1px solid var(--line); padding:34px clamp(20px,4vw,56px); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+  footer span{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--mute);}
+
+  .toast{position:fixed; left:50%; bottom:34px; transform:translate(-50%,18px); z-index:40; display:flex; align-items:center; gap:11px; padding:14px 22px; border-radius:100px; background:var(--ink); color:var(--fog-hi); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.1em; opacity:0; pointer-events:none; transition:.5s var(--ease);}
+  .toast.show{opacity:1; transform:translate(-50%,0);} .toast .dot{width:7px; height:7px; border-radius:50%; background:var(--accent-hi);}
+  .loading{position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; background:var(--fog); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:0.34em; text-transform:uppercase; color:var(--faint); transition:opacity .7s var(--ease);}
+  .loading span{animation:pulse 1.8s ease-in-out infinite;}
+  @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
+  @media (prefers-reduced-motion:reduce){ .loading span{animation:none;} }
+  .loading.gone{opacity:0; pointer-events:none;}
+  .lab-log{position:fixed; left:clamp(16px,3vw,42px); bottom:15vh; z-index:8; font-family:'Space Mono',monospace; font-size:11px;
+    letter-spacing:0.04em; line-height:1.95; color:var(--mute); background:rgba(240,242,240,0.62); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    border:1px solid var(--line); border-radius:10px; padding:12px 16px; max-width:74vw; opacity:0; transform:translateY(10px);
+    transition:opacity .5s var(--ease), transform .5s var(--ease); pointer-events:none;}
+  .lab-log.show{opacity:1; transform:translateY(0);}
+  .lab-log .live{color:var(--accent);}
+  @media (max-width:860px){ .lab-log{display:none;} }
+
+  /* static fallback — shown only when 3D cannot boot (no WebGL / CDN unreachable) */
+  .poster{display:none;}
+  .no3d .poster{display:block; position:absolute; left:50%; top:50%; width:min(66%,320px); aspect-ratio:300/440;
+    transform:translate(-50%,-50%) perspective(1200px) rotateX(3deg) rotateY(-9deg);
+    border-radius:6px; overflow:hidden; border:1px solid rgba(24,22,18,0.2); box-shadow:0 30px 60px rgba(0,0,0,0.18);}
+  .no3d .poster img{width:100%; height:100%; object-fit:cover; display:block;}
+  .no3d .poster figcaption{position:absolute; left:10px; bottom:8px; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(246,247,245,0.85); mix-blend-mode:difference;}
+  .no3d .morph{display:none;} .no3d .cap,.no3d .rail,.no3d .lab-log{display:none!important;}
+  .no3d #scene,.no3d .loading{display:none;}
+  @media (max-width:860px){ .no3d .stage-col{height:auto; padding:20vh 0;} }
+</style>
+</head>
+<body>
+  <canvas id="scene" role="img" aria-label="Object No.01 — 세로 타일이 스크롤에 따라 달항아리, 유리 플라스크로 변합니다. 드래그하면 회전합니다."></canvas>
+  <div class="fog-v" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <nav class="top">
+    <div class="brand">HEATH<b>X</b>CAPSULE</div>
+    <div class="nav-r"><a href="#finishes">Finishes</a><a href="#access" class="req">Request access</a></div>
+  </nav>
+
+  <header class="hero">
+    <div class="col text">
+      <p class="eyebrow lbl" id="eyebrow">Object No.01 — <span class="accent">Ink Bloom</span></p>
+      <h1>A painting,<br>fired in <span class="p">clay</span>.</h1>
+      <p class="lede">Front face carries the image; the sides carry only its glaze — and the back third
+        turns to raw matte basalt, combed and stamped. Turn it to read the whole object.</p>
+      <div class="swatches" id="swatches" role="radiogroup" aria-label="Finish"></div>
+      <div class="spec" id="spec" aria-live="polite"></div>
+      <div class="cta"><a href="#access" class="btn primary">Request access</a><button class="btn" id="spin">Turn it →</button></div>
+      <p class="turn-hint" id="turnHint">Drag to rotate · scroll: tile → moon jar → flask (the lab)</p>
+    </div>
+    <div class="col stage-col">
+      <figure class="poster" id="poster"><img id="posterImg" alt="Object No.01 — 현재 선택된 마감의 정지 이미지"><figcaption>STATIC SPECIMEN · 3D OFF</figcaption></figure>
+    </div>
+  </header>
+
+  <div class="morph" id="morph" aria-hidden="true">
+    <div class="cap" id="capA"><div class="inner"><h2>The tile <em>softens</em>.</h2><p>Edges round, matter remembers it was once a vessel.</p></div></div>
+    <div class="cap" id="capB"><div class="inner"><h2>달항아리 — the <em>Moon Jar</em>.</h2><p>Full and closed, the foot smaller than the mouth. Your finish, grown round.</p></div></div>
+    <div class="cap" id="capC"><div class="inner"><h2>The <em>Lab</em>.</h2><p>The vessel becomes a graduated flask. Three lights — red, green, blue — drift inside, under continuous study.</p></div></div>
+  </div>
+
+  <nav class="rail" id="rail" aria-label="Morph stages">
+    <div class="rail-track"><div class="rail-fill" id="railFill"></div></div>
+    <div class="rail-stages">
+      <button class="rail-tick" data-p="0.12" aria-current="true"><b>00</b>Tile</button>
+      <button class="rail-tick" data-p="0.44" aria-current="false"><b>01</b>Jar</button>
+      <button class="rail-tick" data-p="0.84" aria-current="false"><b>02</b>Lab</button>
+    </div>
+  </nav>
+
+  <div class="lab-log" id="labLog" aria-hidden="true">▸ SPECIMEN No.01 · assay #001<br>▸ status: under continuous study</div>
+  <div class="sr" aria-live="polite" id="stageLive"></div>
+
+  <section class="block" id="finishes">
+    <div class="wrap">
+      <div class="head"><h2>Eight surfaces, <em>one object</em>.</h2><p class="lbl">Front image · glaze sides · raw back</p></div>
+      <div class="finishes" id="finGrid"></div>
+    </div>
+  </section>
+
+  <section class="block" id="access">
+    <div class="wrap access">
+      <div class="aside rv"><p class="lbl" style="margin-bottom:16px;">By request only</p><p>We open Object No.01 to a small room. Leave a door.</p></div>
+      <form class="form rv" id="accessForm" novalidate>
+        <div class="field"><label class="lbl" for="email">Email</label><input id="email" name="email" type="email" placeholder="you@studio.com" autocomplete="email" required></div>
+        <div class="field"><label class="lbl" for="name">Name <span style="color:var(--faint)">(optional)</span></label><input id="name" name="name" type="text" autocomplete="name"></div>
+        <button class="btn primary" type="submit" style="align-self:flex-start; margin-top:6px;">Seal request</button>
+      </form>
+    </div>
+  </section>
+
+  <footer><span>HEATH<b>X</b>CAPSULE · Object No.01</span><span>© 2026 · Tile / Moon Jar / Flask · Rev.011 · under continuous study</span></footer>
+
+  <div class="toast" id="toast" role="status"><span class="dot"></span><span id="toastMsg">요청이 전송되었습니다 · Request sealed</span></div>
+  <div class="loading" id="loading"><span>Casting the object…</span></div>
+
+  <script>
+  /* ============ HEET core (no dependencies) — texture painters, UI, scroll model, fallback ============ */
+  window.HEET=(()=>{
+    'use strict';
+    const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const lerp=(a,b,t)=>a+(b-a)*t, clamp=(v,a,b)=>Math.min(b,Math.max(a,v)), rnd=(a,b)=>a+Math.random()*(b-a);
+    const TAU=Math.PI*2;
+
+    /* ---- fast grain: one ImageData pass, reused by every finish (replaces ~150k fillRect calls) ---- */
+    function makeNoise(size){ const c=document.createElement('canvas'); c.width=c.height=size; const g=c.getContext('2d');
+      const im=g.createImageData(size,size), d=im.data;
+      for(let i=0;i<d.length;i+=4){ const v=(Math.random()*255)|0; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+      g.putImageData(im,0,0); return c; }
+    const NOISE=makeNoise(512);
+    function grain(g,alpha,mode){ g.save(); g.globalAlpha=alpha; g.globalCompositeOperation=mode||'overlay';
+      g.drawImage(NOISE,0,0,1024,1024); g.restore(); }
+
+    function C(){ const c=document.createElement('canvas'); c.width=c.height=1024; return [c,c.getContext('2d')]; }
+    function grad(g,st){ const l=g.createLinearGradient(0,0,1024,1024); st.forEach(s=>l.addColorStop(s[0],s[1])); return l; }
+    function blossom(g,cx,cy,sc,pal){ g.save(); g.lineJoin='round'; g.lineCap='round';
+      g.globalAlpha=0.5; g.strokeStyle=pal.leaf; g.lineWidth=8*sc; g.beginPath(); g.moveTo(cx-10,cy+120*sc); g.bezierCurveTo(cx-8,cy+40*sc,cx-4,cy+10*sc,cx,cy); g.stroke();
+      [[-1,150],[1,120]].forEach(([d,ln])=>{ g.beginPath(); g.moveTo(cx,cy+70*sc); g.quadraticCurveTo(cx+d*90*sc,cy+40*sc,cx+d*ln*sc,cy+95*sc); g.stroke(); }); g.globalAlpha=1;
+      for(let i=0;i<8;i++){ const a=i/8*TAU-0.3, px=cx+Math.cos(a)*46*sc, py=cy+Math.sin(a)*46*sc; const rg=g.createRadialGradient(px,py,2,px,py,96*sc); rg.addColorStop(0,pal.petalA); rg.addColorStop(.55,pal.petalB); rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.save(); g.translate(px,py); g.rotate(a); g.scale(1,0.5); g.translate(-px,-py); g.fillStyle=rg; g.beginPath(); g.arc(px,py,96*sc,0,TAU); g.fill(); g.restore(); }
+      const cg=g.createRadialGradient(cx,cy,2,cx,cy,64*sc); cg.addColorStop(0,pal.core); cg.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=cg; g.beginPath(); g.arc(cx,cy,64*sc,0,TAU); g.fill();
+      g.globalAlpha=0.45; g.strokeStyle=pal.ink; g.lineWidth=1.8*sc; for(let i=0;i<8;i++){ const a=i/8*TAU-0.3; g.beginPath(); g.moveTo(cx,cy); g.quadraticCurveTo(cx+Math.cos(a-0.25)*76*sc,cy+Math.sin(a-0.25)*42*sc, cx+Math.cos(a)*100*sc,cy+Math.sin(a)*54*sc); g.stroke(); }
+      g.globalAlpha=1; g.fillStyle=pal.ink; for(let i=0;i<12;i++){ const a=Math.random()*TAU,r=Math.random()*24*sc; g.beginPath(); g.arc(cx+Math.cos(a)*r,cy+Math.sin(a)*r,1.8*sc,0,TAU); g.fill(); } g.restore(); }
+
+    function fObsidian(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#1a1512'],[.5,'#0d0a08'],[1,'#060403']]); g.fillRect(0,0,1024,1024);
+      const cx=512,cy=540; let h=g.createRadialGradient(cx,cy,20,cx,cy,430); h.addColorStop(0,'rgba(150,20,18,0.5)'); h.addColorStop(.4,'rgba(96,12,12,0.26)'); h.addColorStop(1,'rgba(40,4,4,0)'); g.fillStyle=h; g.fillRect(0,0,1024,1024);
+      for(let i=0;i<7;i++){ const a=i/7*TAU+rnd(-.2,.2), r=rnd(120,210), px=cx+Math.cos(a)*rnd(30,90), py=cy+Math.sin(a)*rnd(30,90); const pg=g.createRadialGradient(px,py,4,px,py,r); pg.addColorStop(0,'rgba(178,26,22,0.68)'); pg.addColorStop(.5,'rgba(110,14,14,0.38)'); pg.addColorStop(1,'rgba(60,6,6,0)');
+        g.save(); g.translate(px,py); g.rotate(a); g.scale(1,0.55); g.translate(-px,-py); g.fillStyle=pg; g.beginPath(); g.arc(px,py,r,0,TAU); g.fill(); g.restore(); }
+      let core=g.createRadialGradient(cx,cy-10,2,cx,cy-10,70); core.addColorStop(0,'rgba(30,0,0,0.9)'); core.addColorStop(1,'rgba(30,0,0,0)'); g.fillStyle=core; g.beginPath(); g.arc(cx,cy-10,70,0,TAU); g.fill();
+      g.strokeStyle='rgba(120,12,12,0.45)'; g.lineCap='round'; for(let i=0;i<5;i++){ const x=cx+rnd(-120,120); g.lineWidth=rnd(2,6); g.beginPath(); g.moveTo(x,cy+rnd(60,160)); g.bezierCurveTo(x+rnd(-8,8),cy+260,x+rnd(-14,14),cy+380,x+rnd(-6,6),cy+rnd(430,560)); g.stroke(); }
+      grain(g,0.05,'screen'); return c; }
+    function fBloodMarble(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#eceae6'],[.5,'#e2dfd9'],[1,'#d4d0c8']]); g.fillRect(0,0,1024,1024);
+      function vein(col,w,n){ for(let i=0;i<n;i++){ g.strokeStyle=col; g.lineWidth=w; g.beginPath(); let x=Math.random()*1024,y=-10; g.moveTo(x,y); for(let s=0;s<9;s++){ x+=rnd(-90,90); y+=118; g.lineTo(x,y); if(Math.random()>.6){ g.moveTo(x,y); g.lineTo(x+rnd(-60,60),y+60); g.moveTo(x,y);} } g.stroke(); } }
+      vein('rgba(120,112,100,0.18)',1.4,6); vein('rgba(150,30,26,0.5)',1.1,3); grain(g,0.06,'multiply'); return c; }
+    function fBasalt(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#454039'],[.5,'#332f2a'],[1,'#211e1a']]); g.fillRect(0,0,1024,1024);
+      grain(g,0.16,'overlay'); grain(g,0.05,'screen'); return c; }
+    function fInk(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#f4ecdc'],[.5,'#efe6d2'],[1,'#e6dbc3']]); g.fillRect(0,0,1024,1024);
+      g.shadowColor='rgba(120,20,20,0.25)'; g.shadowBlur=30; blossom(g,512,500,1.35,{petalA:'rgba(190,42,44,0.85)',petalB:'rgba(150,26,30,0.4)',core:'rgba(90,10,14,0.8)',ink:'#3a1510',leaf:'#5f6a42'});
+      g.shadowBlur=0; blossom(g,690,720,0.7,{petalA:'rgba(200,60,60,0.7)',petalB:'rgba(150,26,30,0.35)',core:'rgba(90,10,14,0.7)',ink:'#3a1510',leaf:'#5f6a42'}); grain(g,0.05,'multiply'); return c; }
+    function fCobalt(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#f8f6ef'],[1,'#eef0ea']]); g.fillRect(0,0,1024,1024);
+      g.shadowColor='rgba(30,60,150,0.25)'; g.shadowBlur=26; blossom(g,512,510,1.35,{petalA:'rgba(42,74,140,0.85)',petalB:'rgba(30,52,110,0.4)',core:'rgba(16,30,80,0.85)',ink:'#16264f',leaf:'#3a5a8c'});
+      g.shadowBlur=0; blossom(g,700,700,0.65,{petalA:'rgba(52,84,150,0.7)',petalB:'rgba(30,52,110,0.35)',core:'rgba(16,30,80,0.7)',ink:'#16264f',leaf:'#3a5a8c'}); return c; }
+    function fCeladon(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#dfe9dd'],[.5,'#cfe0cc'],[1,'#c0d4bd']]); g.fillRect(0,0,1024,1024);
+      g.strokeStyle='rgba(70,100,80,0.18)'; g.lineWidth=1.4; for(let r=80;r<460;r+=44){ g.beginPath(); for(let a=0;a<=TAU+0.1;a+=0.08){ const rr=r+Math.sin(a*6)*6; const x=512+Math.cos(a)*rr,y=512+Math.sin(a)*rr; a?g.lineTo(x,y):g.moveTo(x,y);} g.stroke(); } grain(g,0.05,'multiply'); return c; }
+    function fCircuit(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#eef0f0'],[1,'#e2e5e6']]); g.fillRect(0,0,1024,1024);
+      g.strokeStyle='rgba(40,46,52,0.5)'; g.lineWidth=1.1; g.fillStyle='rgba(40,46,52,0.55)'; for(let i=0;i<26;i++){ let x=rnd(60,964),y=rnd(60,964); g.beginPath(); g.moveTo(x,y); for(let s=0;s<rnd(3,6);s++){ if(Math.random()>.5)x+=rnd(-140,140); else y+=rnd(-140,140); x=clamp(x,40,984); y=clamp(y,40,984); g.lineTo(x,y);} g.stroke(); g.fillRect(x-3,y-3,6,6); }
+      for(let i=0;i<40;i++){ g.fillStyle='rgba(40,46,52,0.4)'; g.beginPath(); g.arc(rnd(40,984),rnd(40,984),2,0,TAU); g.fill(); } return c; }
+    function fPorcelain(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#f8f4ec'],[.5,'#f1ebde'],[1,'#e8e0cf']]); g.fillRect(0,0,1024,1024);
+      const pts=[]; for(let i=0;i<70;i++) pts.push([Math.random()*1024,Math.random()*1024]); g.strokeStyle='rgba(120,110,96,0.15)'; g.lineWidth=0.8;
+      pts.forEach(p=>{ pts.slice().sort((a,b)=>((a[0]-p[0])**2+(a[1]-p[1])**2)-((b[0]-p[0])**2+(b[1]-p[1])**2)).slice(1,4).forEach(q=>{ g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo((p[0]+q[0])/2+rnd(-14,14),(p[1]+q[1])/2+rnd(-14,14)); g.lineTo(q[0],q[1]); g.stroke(); }); }); grain(g,0.07,'multiply'); return c; }
+    function bumpCrackle(){ const [c,g]=C(); g.fillStyle='#808080'; g.fillRect(0,0,1024,1024);
+      const pts=[]; for(let i=0;i<120;i++) pts.push([Math.random()*1024,Math.random()*1024]); g.lineWidth=1;
+      pts.forEach(p=>{ pts.slice().sort((a,b)=>((a[0]-p[0])**2+(a[1]-p[1])**2)-((b[0]-p[0])**2+(b[1]-p[1])**2)).slice(1,4).forEach(q=>{ g.strokeStyle='rgba(40,40,40,0.5)'; g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo((p[0]+q[0])/2+rnd(-10,10),(p[1]+q[1])/2+rnd(-10,10)); g.lineTo(q[0],q[1]); g.stroke(); g.strokeStyle='rgba(230,230,230,0.35)'; g.stroke(); }); }); return c; }
+    function fRawBack(){ const [c,g]=C(); g.fillStyle=grad(g,[[0,'#3f3a33'],[.5,'#332f2a'],[1,'#242019']]); g.fillRect(0,0,1024,1024);
+      grain(g,0.15,'overlay'); grain(g,0.04,'screen');
+      g.strokeStyle='rgba(20,18,14,0.28)'; g.lineWidth=10; for(let y=44;y<1024;y+=48){ g.beginPath(); for(let x=0;x<=1024;x+=16){ const yy=y+Math.sin(x*0.02)*4; x?g.lineTo(x,yy):g.moveTo(x,yy);} g.stroke(); }
+      g.save(); g.translate(512,512); g.rotate(-Math.PI/2); g.fillStyle='rgba(210,200,185,0.10)'; g.textAlign='center'; g.font='700 40px "Space Mono",monospace'; g.fillText('HEATHXCAPSULE',0,-6); g.font='400 26px "Space Mono",monospace'; g.fillText('OBJECT No.01',0,34); g.restore(); return c; }
+    function glowCanvas(){ const [c,g]=C(); const gr=g.createRadialGradient(512,512,0,512,512,512);
+      gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.08,'rgba(255,255,255,0.9)'); gr.addColorStop(0.3,'rgba(255,255,255,0.32)'); gr.addColorStop(0.6,'rgba(255,255,255,0.08)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+      g.fillStyle=gr; g.fillRect(0,0,1024,1024); return c; }
+
+    const FIN=[
+      {name:'Ink Bloom', desc:'Cream glaze, a blossom in ink and crimson. A painting, fired.', r:'Gloss · hand-painted', edge:'#e9dfcb', make:fInk, mat:{rough:0.3,cc:0.7,ccr:0.3,env:1.2}},
+      {name:'Obsidian Bloom', desc:'Black glaze, one spill of red. Wound or flower — you decide.', r:'Gloss · glaze', edge:'#100c0a', make:fObsidian, mat:{rough:0.3,cc:0.7,ccr:0.3,env:1.2}},
+      {name:'Cobalt Blossom', desc:'Blue-and-white porcelain, a cobalt flower under clear glaze.', r:'Gloss · cobalt', edge:'#eef0ea', make:fCobalt, mat:{rough:0.22,cc:0.9,ccr:0.22,env:1.35}},
+      {name:'Celadon Mist', desc:'Soft green celadon with an incised, quiet motif.', r:'Satin · incised', edge:'#cadfc6', make:fCeladon, mat:{rough:0.28,cc:0.8,ccr:0.3,env:1.2}},
+      {name:'Circuit', desc:'A hi-tech trace map etched into pale glaze. Quiet machine.', r:'Matte-satin · etched', edge:'#e6e9ea', make:fCircuit, mat:{rough:0.4,cc:0.5,ccr:0.4,env:1.0}},
+      {name:'Bone Porcelain', desc:'Warm white with a fine craquelure. The sound of thin ice.', r:'Satin · crackle', edge:'#f1ebde', make:fPorcelain, mat:{rough:0.18,cc:1.0,ccr:0.2,env:1.4}},
+      {name:'Blood Marble', desc:'Cold stone, warm red veins. A quiet violence, honed.', r:'Honed · veined', edge:'#e2ded6', make:fBloodMarble, mat:{rough:0.26,cc:0.5,ccr:0.4,env:1.0}},
+      {name:'Raw Basalt', desc:'Unglazed, matte, gritty — the same face as the back.', r:'Matte · unglazed', edge:'#2f2b25', make:fBasalt, mat:{rough:0.92,cc:0.0,ccr:1.0,env:0.7}},
+    ];
+    /* paint once; thumbnails are 288px JPEGs (swatches + grid), not megabyte PNG dataURLs */
+    FIN.forEach(f=>{ f.canvas=f.make(); const t=document.createElement('canvas'); t.width=t.height=288;
+      t.getContext('2d').drawImage(f.canvas,0,0,288,288); f.thumb=t.toDataURL('image/jpeg',0.86); });
+    const backCanvas=fRawBack(), bumpCanvas=bumpCrackle(), glow=glowCanvas();
+
+    /* ---------- scroll model: morph progress without any scroll library ---------- */
+    const morphEl=document.getElementById('morph');
+    const M={v:0}; let morphTop=0, morphH=1;
+    function measure(){ morphTop=morphEl.offsetTop; morphH=Math.max(1,morphEl.offsetHeight); }
+    const capA=document.getElementById('capA'),capB=document.getElementById('capB'),capC=document.getElementById('capC');
+    const labLog=document.getElementById('labLog'), rail=document.getElementById('rail'), railFill=document.getElementById('railFill');
+    const ticks=[...rail.querySelectorAll('.rail-tick')], stageLive=document.getElementById('stageLive');
+    const STAGE=['Tile — 타일','Moon Jar — 달항아리','The Lab — 플라스크']; let lastStage=-1;
+    function onScroll(){ const m=M.v=clamp((scrollY-(morphTop-innerHeight))/morphH,0,1);
+      capA.classList.toggle('show', m>0.05&&m<0.24);
+      capB.classList.toggle('show', m>0.33&&m<0.56);
+      capC.classList.toggle('show', m>0.70&&m<0.96);
+      labLog.classList.toggle('show', m>0.63&&m<0.98);
+      rail.classList.toggle('show', m<0.995 && scrollY<morphTop+morphH);
+      railFill.style.transform=`scaleY(${m.toFixed(4)})`;
+      const st=m<0.3?0:(m<0.66?1:2);
+      if(st!==lastStage){ lastStage=st; ticks.forEach((t,i)=>t.setAttribute('aria-current',i===st)); stageLive.textContent='Stage: '+STAGE[st]; }
+    }
+    ticks.forEach(t=>t.addEventListener('click',()=>{ const p=parseFloat(t.dataset.p);
+      scrollTo({top:morphTop-innerHeight+p*morphH, behavior:reduce?'auto':'smooth'}); }));
+    addEventListener('scroll',onScroll,{passive:true});
+    addEventListener('resize',()=>{ measure(); onScroll(); });
+    measure(); onScroll();
+
+    /* ---------- finish selection: UI is the source of truth; 3D subscribes ---------- */
+    const swWrap=document.getElementById('swatches'), specEl=document.getElementById('spec'), grid=document.getElementById('finGrid'), eyebrow=document.getElementById('eyebrow');
+    const hooks=[]; let current=0;
+    function renderSpec(f){ specEl.innerHTML=`<div><span>Finish</span><b>${f.name}</b></div><div><span>Format</span><b>300 × 440 × 32 mm</b></div><div><span>Front</span><b>${f.r}</b></div><div><span>Sides</span><b>Glaze only · 2/3 · then raw</b></div><div><span>Back</span><b>Raw basalt · matte</b></div>`; }
+    function setFinish(i){ current=i; const f=FIN[i];
+      [...swWrap.children].forEach((el,k)=>{ el.setAttribute('aria-checked',k===i); el.tabIndex=k===i?0:-1; });
+      eyebrow.innerHTML=`Object No.01 — <span class="accent">${f.name}</span>`; renderSpec(f);
+      if(document.body.classList.contains('no3d')) posterImg.src=f.canvas.toDataURL('image/jpeg',0.85);
+      hooks.forEach(h=>h(i,f)); }
+    FIN.forEach((f,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='sw'; b.style.backgroundImage=`url(${f.thumb})`;
+      b.setAttribute('role','radio'); b.setAttribute('aria-label',f.name); b.title=f.name; b.addEventListener('click',()=>setFinish(i)); swWrap.appendChild(b); });
+    swWrap.addEventListener('keydown',e=>{ const k=e.key; let n=null;
+      if(k==='ArrowRight'||k==='ArrowDown')n=(current+1)%FIN.length; else if(k==='ArrowLeft'||k==='ArrowUp')n=(current+FIN.length-1)%FIN.length;
+      else if(k==='Home')n=0; else if(k==='End')n=FIN.length-1; if(n===null)return; e.preventDefault(); setFinish(n); swWrap.children[n].focus(); });
+    FIN.forEach((f,i)=>{ const el=document.createElement('article'); el.className='fin rv'; el.tabIndex=0; el.setAttribute('role','button');
+      el.setAttribute('aria-label',`Select finish: ${f.name}`); el.style.transitionDelay=(i%4*60)+'ms';
+      el.innerHTML=`<div class="tex" style="background-image:url(${f.thumb})"></div><div class="meta"><h3>${f.name}</h3><p>${f.desc}</p><span class="r">${f.r}</span></div>`;
+      const pick=()=>{ setFinish(i); scrollTo({top:0,behavior:reduce?'auto':'smooth'}); };
+      el.addEventListener('click',pick); el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } });
+      grid.appendChild(el); });
+    setFinish(0);
+
+    /* reveal on scroll */
+    const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} }),{threshold:0.14});
+    document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+    /* live lab log — the sense of continuous research on tile & vessel */
+    let assay=1; setInterval(()=>{ if(!labLog.classList.contains('show'))return; assay++;
+      labLog.innerHTML=[`▸ SPECIMEN No.01 · assay #${String(assay).padStart(3,'0')} <span class="live">●</span>`,
+        `▸ spectrum R·G·B · drift ${(Math.random()*2+0.3).toFixed(2)} nm`,
+        `▸ vessel morphology · tile ⇄ jar ⇄ flask`,
+        `▸ thermal ${(21+Math.random()*2).toFixed(1)}°C · status: under study`].join('<br>'); },1500);
+
+    /* form → fake send, toast only */
+    const toast=document.getElementById('toast'), toastMsg=document.getElementById('toastMsg');
+    function showToast(msg){ toastMsg.textContent=msg; toast.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>toast.classList.remove('show'),3200); }
+    document.getElementById('accessForm').addEventListener('submit',e=>{ e.preventDefault(); const email=document.getElementById('email');
+      if(!email.value||!email.checkValidity()){ email.setAttribute('aria-invalid','true'); email.focus(); showToast('유효한 이메일을 입력해 주세요'); }
+      else{ email.removeAttribute('aria-invalid'); showToast('요청이 전송되었습니다 · Request sealed'); email.value=''; email.blur(); } });
+
+    /* ---------- fallback: if 3D can't boot, the page still works as a still specimen ---------- */
+    const loading=document.getElementById('loading'), posterImg=document.getElementById('posterImg');
+    let booted=false, failed=false;
+    function bootOK(){ booted=true; loading.classList.add('gone'); document.getElementById('scene').classList.add('on');
+      if(failed){ failed=false; document.body.classList.remove('no3d'); document.getElementById('spin').disabled=false;
+        document.getElementById('turnHint').textContent='Drag to rotate · scroll: tile → moon jar → flask (the lab)'; } }
+    function fail(){ if(booted||failed)return; failed=true; document.body.classList.add('no3d'); loading.classList.add('gone');
+      posterImg.src=FIN[current].canvas.toDataURL('image/jpeg',0.85);
+      const spin=document.getElementById('spin'); spin.disabled=true;
+      document.getElementById('turnHint').textContent='3D를 불러오지 못했습니다 · 정지 표본으로 표시합니다 — 새로고침하면 다시 시도합니다';
+      showToast('3D unavailable · showing the still specimen'); }
+    setTimeout(fail,8000);
+
+    return {FIN, backCanvas, bumpCanvas, glow, M, reduce, lerp, clamp, rnd, TAU,
+      onFinish:cb=>{ hooks.push(cb); cb(current,FIN[current]); }, bootOK, fail,
+      smooth:(e0,e1,x)=>{ const t=clamp((x-e0)/(e1-e0),0,1); return t*t*(3-2*t); }};
+  })();
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    const H=window.HEET, {FIN, M, reduce, lerp, clamp, rnd, TAU, smooth}=H;
+
+    let renderer;
+    const canvas=document.getElementById('scene');
+    try{ renderer=new THREE.WebGLRenderer({canvas,antialias:true}); }
+    catch(e){ H.fail(); throw e; }
+    renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12; renderer.outputColorSpace=THREE.SRGBColorSpace;
+    const ANISO=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    const tex=c=>{ const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=ANISO; return t; };
+    FIN.forEach(f=>f.tex=tex(f.canvas));
+    const backTex=tex(H.backCanvas);
+    const bumpTex=new THREE.CanvasTexture(H.bumpCanvas); bumpTex.wrapS=bumpTex.wrapT=THREE.RepeatWrapping; bumpTex.repeat.set(3,2); bumpTex.anisotropy=ANISO;
+    const glowTex=tex(H.glow);
+
+    const scene=new THREE.Scene(); scene.background=new THREE.Color('#eceeec');
+    const camera=new THREE.PerspectiveCamera(34, innerWidth/innerHeight, 0.1, 100);
+    const pmrem=new THREE.PMREMGenerator(renderer); scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+    scene.add(new THREE.AmbientLight(0xffffff,1.2));
+    const key=new THREE.DirectionalLight(0xffffff,2.1); key.position.set(3,4,5); scene.add(key);
+    const rim=new THREE.DirectionalLight(0xdfe4e6,1.3); rim.position.set(-4,2,-3); scene.add(rim);
+
+    const group=new THREE.Group(); scene.add(group);
+    const gShadow=new THREE.Mesh(new THREE.CircleGeometry(1.25,64), new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.10}));
+    gShadow.rotation.x=-Math.PI/2; gShadow.position.y=-1.5; scene.add(gShadow);
+
+    // ---------- TILE: soft-cornered glaze slab (front 2/3) + raw band (back 1/3) + inset image ----------
+    const W=1.5,H_=2.15,D=0.2, GD=0.134, RD=0.066, R=0.03;
+    const glazeMat=new THREE.MeshPhysicalMaterial({color:new THREE.Color(FIN[0].edge), roughness:0.3, metalness:0, clearcoat:0.7, clearcoatRoughness:0.3, envMapIntensity:1.2, transparent:true});
+    const backMat=new THREE.MeshStandardMaterial({map:backTex, roughness:0.95, metalness:0, transparent:true});
+    const frontMat=new THREE.MeshPhysicalMaterial({map:FIN[0].tex, roughness:0.3, metalness:0, clearcoat:0.7, clearcoatRoughness:0.3, envMapIntensity:1.2, transparent:true});
+    const glazeBox=new THREE.Mesh(new RoundedBoxGeometry(W,H_,GD,4,R), glazeMat); glazeBox.position.z=(D/2-GD/2);
+    const rawBox=new THREE.Mesh(new RoundedBoxGeometry(W,H_,RD,4,0.028), backMat); rawBox.position.z=-(D/2-RD/2);
+    const imgPlane=new THREE.Mesh(new THREE.PlaneGeometry(W*0.86,H_*0.9), frontMat); imgPlane.position.z=D/2+0.002;
+    const tileGrp=new THREE.Group(); tileGrp.add(glazeBox,rawBox,imgPlane); group.add(tileGrp);
+
+    // ---------- MOON JAR ----------
+    const ctrl=[[0.001,-1.0],[0.30,-0.95],[0.40,-0.86],[0.66,-0.64],[0.90,-0.34],[1.02,0.0],[0.96,0.32],[0.74,0.60],[0.54,0.80],[0.45,0.92],[0.46,0.99]].map(p=>new THREE.Vector3(p[0],p[1],0));
+    const curve=new THREE.CatmullRomCurve3(ctrl,false,'catmullrom',0.5);
+    const prof=curve.getPoints(150).map(p=>new THREE.Vector2(Math.max(p.x,0.001),p.y));
+    const jarGeo=new THREE.LatheGeometry(prof,180); jarGeo.computeVertexNormals();
+    const jarMat=new THREE.MeshPhysicalMaterial({map:FIN[0].tex, color:0xffffff, roughness:0.22, metalness:0, clearcoat:0.9, clearcoatRoughness:0.2, envMapIntensity:1.4, bumpMap:bumpTex, bumpScale:0.012, transparent:true, opacity:0});
+    const jar=new THREE.Mesh(jarGeo,jarMat); const jarGrp=new THREE.Group(); jarGrp.add(jar); jarGrp.scale.setScalar(0.6); jarGrp.visible=false; group.add(jarGrp);
+
+    // ---------- GLASS ERLENMEYER FLASK — frosted, high-clarity + firefly particles (the lab) ----------
+    const flaskCtrl=[[0.001,-1.0],[0.95,-1.0],[0.97,-0.93],[0.86,-0.70],[0.72,-0.42],[0.56,-0.12],[0.40,0.16],[0.30,0.34],[0.28,0.44],[0.28,0.72],[0.28,0.90],[0.33,0.96],[0.30,0.99]].map(p=>new THREE.Vector3(p[0],p[1],0));
+    const flaskCurve=new THREE.CatmullRomCurve3(flaskCtrl,false,'catmullrom',0.5);
+    const flaskProf=flaskCurve.getPoints(150).map(p=>new THREE.Vector2(Math.max(p.x,0.001),p.y));
+    const flaskGeo=new THREE.LatheGeometry(flaskProf,150); flaskGeo.computeVertexNormals();
+    const glassMat=new THREE.MeshPhysicalMaterial({color:0xf4f7f7, roughness:0.2, metalness:0, transmission:0.9, thickness:0.6, ior:1.45, clearcoat:1, clearcoatRoughness:0.14, envMapIntensity:1.3, attenuationColor:new THREE.Color(0xffffff), attenuationDistance:3.0, transparent:true, opacity:1, side:THREE.DoubleSide, depthWrite:false});
+    const glass=new THREE.Mesh(flaskGeo,glassMat); const glassGrp=new THREE.Group(); glassGrp.add(glass); glassGrp.scale.setScalar(0.7); glassGrp.visible=false; group.add(glassGrp);
+    // interior radius by height — keeps the fireflies inside the flask
+    const PY=flaskProf.map(p=>p.y), PR=flaskProf.map(p=>p.x);
+    function rAt(y){ if(y<=PY[0])return PR[0]; if(y>=PY[PY.length-1])return PR[PR.length-1]; for(let i=1;i<PY.length;i++){ if(PY[i]>=y){ const tt=(y-PY[i-1])/((PY[i]-PY[i-1])||1e-4); return lerp(PR[i-1],PR[i],tt);} } return 0.4; }
+    // graduation rings — laboratory glassware markings
+    const rings=[]; [-0.55,-0.28,-0.02,0.5,0.72].forEach(gy=>{ const rr=rAt(gy)*1.004, seg=72, pts=[]; for(let s=0;s<=seg;s++){ const a=s/seg*TAU; pts.push(new THREE.Vector3(Math.cos(a)*rr,gy,Math.sin(a)*rr)); }
+      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0,depthWrite:false})); glassGrp.add(line); rings.push(line); });
+    const PCOL=[0xff1f1f,0x1fff3c,0x2f6bff]; // red · green · blue  (3 fireflies)
+    const particles=PCOL.map(col=>{ const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:col,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+      spr.scale.setScalar(0.36); glassGrp.add(spr);
+      const light=new THREE.PointLight(col,0,3.2,2); glassGrp.add(light);
+      const y=rnd(-0.5,0.5), rm=rAt(y)*0.55, a=rnd(0,TAU), rr=rnd(0,rm);
+      return {spr,light,color:col, x:Math.cos(a)*rr,y,z:Math.sin(a)*rr, vx:0,vy:0,vz:0, ph:rnd(0,TAU), fl:rnd(0.8,1.4)}; });
+
+    let deskX=1.05, portrait=false;
+    function layout(){ const a=innerWidth/innerHeight; portrait=a<0.95; camera.aspect=a; camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(devicePixelRatio, portrait?1.75:2)); renderer.setSize(innerWidth,innerHeight);
+      if(!portrait){ deskX=1.05; } else { deskX=0; } }
+    addEventListener('resize',layout); layout();
+
+    /* drag = direct grip (1:1 while held), inertia only on release; turn = one measured 180° */
+    let rotY=0, velY=0, rotX=0.1, dragging=false, lastX=0, lastY=0, startle=0;
+    let turnT=0, turnC=0;
+    canvas.addEventListener('pointerdown',e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; velY=0; try{canvas.setPointerCapture(e.pointerId);}catch(_){} });
+    addEventListener('pointerup',()=>dragging=false);
+    addEventListener('pointercancel',()=>dragging=false);
+    addEventListener('pointermove',e=>{ if(!dragging)return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+      if(Math.abs(dx)>Math.abs(dy)){ rotY+=dx*0.0055; velY=dx*0.0055; rotX=clamp(rotX+dy*0.002,-0.4,0.5);
+        if(mCur>0.66){ startle=1; particles.forEach(p=>{ p.vx+=rnd(-1,1)*0.004; p.vy+=rnd(-1,1)*0.004; p.vz+=rnd(-1,1)*0.004; }); } } });
+    document.getElementById('spin').addEventListener('click',()=>{ turnT+=Math.PI; });
+
+    /* entrance: the object settles into place once, then idles */
+    let bootAt=-1, mCur=0;
+    const clock=new THREE.Clock();
+    function frame(){ requestAnimationFrame(frame); const t=clock.getElapsedTime();
+      mCur=lerp(mCur,M.v,0.08); const m=mCur;
+      if(bootAt<0){ bootAt=t; H.bootOK(); }
+      const introE=reduce?1:smooth(0,1.5,t-bootAt);
+      const introYaw=(1-introE)*-0.55;
+      group.scale.setScalar(0.94+0.06*introE);
+
+      const idle=reduce?0:0.0022;
+      if(!dragging){ rotY+=velY; velY*=0.94; }
+      rotY+=idle; turnC=lerp(turnC,turnT,0.07); startle*=0.94;
+      group.rotation.y=rotY+turnC+introYaw;
+      group.rotation.x=lerp(group.rotation.x, rotX+(reduce?0:Math.sin(t*0.5)*0.03),0.08);
+      key.intensity=2.1*(1+(reduce?0:0.06*Math.sin(t*0.4)));
+
+      const baseX=portrait?0:deskX; group.position.x=lerp(baseX,0,smooth(0,0.16,m));
+      const camY=portrait?lerp(-0.55,0,smooth(0,0.22,m)):0;                    // recenter once hero text scrolls away
+      camera.position.set(0,camY,portrait?6.4:5.2); camera.lookAt(0,camY,0);
+
+      const tf=1-smooth(0.16,0.36,m), pf=smooth(0.26,0.46,m)*(1-smooth(0.60,0.80,m)), gf=smooth(0.66,0.86,m);
+      glazeMat.opacity=tf; backMat.opacity=tf; frontMat.opacity=tf;
+      tileGrp.scale.setScalar(lerp(1,0.74,smooth(0.1,0.45,m))*tilePop); tilePop=lerp(tilePop,1,0.1); tileGrp.visible=tf>0.01;
+      jarMat.opacity=pf; jarGrp.scale.setScalar(lerp(0.6,1,smooth(0.28,0.6,m))); jarGrp.visible=pf>0.01;
+      glassMat.opacity=gf; glassGrp.scale.setScalar(lerp(0.7,1,smooth(0.66,0.9,m))); glassGrp.visible=gf>0.01; rings.forEach(r=>r.material.opacity=gf*0.5);
+      /* material response follows the selected finish without a tween library */
+      [frontMat,glazeMat,jarMat].forEach(mt=>{ mt.roughness=lerp(mt.roughness,matT.rough,0.08); mt.clearcoat=lerp(mt.clearcoat,matT.cc,0.08);
+        mt.clearcoatRoughness=lerp(mt.clearcoatRoughness,matT.ccr,0.08); mt.envMapIntensity=lerp(mt.envMapIntensity,matT.env,0.08); });
+
+      if(gf>0.02){ // fireflies: slow random wander inside the flask, softly pulsing; drag startles them
+        const wob=reduce?0.5:1;
+        particles.forEach(p=>{
+          p.vx+=(Math.random()-0.5)*0.0016*wob; p.vy+=(Math.random()-0.5)*0.0016*wob; p.vz+=(Math.random()-0.5)*0.0016*wob;
+          p.vx*=0.965; p.vy*=0.965; p.vz*=0.965; p.x+=p.vx; p.y+=p.vy; p.z+=p.vz;
+          p.y=clamp(p.y,-0.8,0.85); const rm=rAt(p.y)*0.6, d=Math.hypot(p.x,p.z); if(d>rm){ const s=rm/d; p.x*=s; p.z*=s; p.vx*=-0.5; p.vz*=-0.5; }
+          const flick=Math.sin(t*p.fl*2.6*wob+p.ph)*Math.sin(t*p.fl*1.7*wob+p.ph*2); const b=gf*(0.35+0.65*Math.max(0,flick))*(1+startle*0.8);
+          p.spr.position.set(p.x,p.y,p.z); p.spr.material.opacity=Math.min(1,b); p.spr.visible=true;
+          p.light.position.set(p.x,p.y,p.z); p.light.intensity=b*3.2;
+        });
+      } else { particles.forEach(p=>{ p.spr.material.opacity=0; p.light.intensity=0; }); }
+      gShadow.position.x=group.position.x; gShadow.material.opacity=0.10*Math.max(tf,pf*0.8,gf*0.4)*introE;
+      renderer.render(scene,camera);
+    }
+
+    /* finish subscription — UI already owns swatches/grid/spec */
+    const matT={rough:0.3,cc:0.7,ccr:0.3,env:1.2}; let tilePop=1;
+    H.onFinish((i,f)=>{ frontMat.map=f.tex; frontMat.needsUpdate=true; jarMat.map=f.tex; jarMat.needsUpdate=true; glazeMat.color.set(f.edge);
+      Object.assign(matT,f.mat); tilePop=0.97; });
+    frame();
+  </script>
+</body>
+</html>
