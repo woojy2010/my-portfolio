@@ -1,0 +1,2187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transition Studio — 그린스크린 트랜지션 소스 제작기</title>
+<style>
+  :root{
+    --bg:#0a0b0f; --panel:#13151c; --panel2:#1b1e28; --line:#262a36;
+    --txt:#e8eaf0; --dim:#8b90a0; --acc:#5b8cff; --acc2:#ff5b9c; --ok:#39d98a; --rec:#ff4040;
+  }
+  *{box-sizing:border-box;-webkit-user-select:none;user-select:none}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  .app{display:flex;height:100vh;overflow:hidden}
+  /* stage */
+  .stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;
+    background:repeating-conic-gradient(#15171e 0% 25%,#0d0f15 0% 50%) 50%/28px 28px;overflow:hidden}
+  .canvas-wrap{position:relative;box-shadow:0 12px 60px rgba(0,0,0,.6);max-width:96%;max-height:94%}
+  canvas#main{display:block;max-width:100%;max-height:88vh;width:auto;height:auto;background:#00ff00}
+  .badge{position:absolute;top:10px;left:12px;font-size:12px;letter-spacing:.04em;color:#fff;
+    background:rgba(0,0,0,.45);padding:4px 9px;border-radius:6px;backdrop-filter:blur(4px)}
+  .rec-dot{position:absolute;top:10px;right:12px;display:none;align-items:center;gap:7px;
+    font-size:12px;color:#fff;background:rgba(0,0,0,.5);padding:5px 10px;border-radius:20px}
+  .rec-dot.on{display:flex}
+  .rec-dot i{width:9px;height:9px;border-radius:50%;background:var(--rec);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .timeline{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.12)}
+  .timeline i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  /* 퍼폼(감상) 모드 */
+  .app.perform .panel{display:none}
+  .app.perform .stage{background:#000}
+  .app.perform .canvas-wrap{max-width:100%;max-height:100%;box-shadow:none}
+  .app.perform canvas#main{max-height:100vh;max-width:100vw;background:#000}
+  .app.perform .badge,.app.perform .desc-bar,.app.perform .rec-dot,.app.perform .pt,.app.perform .pt-line{display:none!important}
+  .perform-hud{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;display:none;
+    align-items:center;gap:14px;padding:10px 16px;border-radius:14px;
+    background:rgba(8,10,16,.62);border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(10px);
+    color:#fff;font-size:13px;box-shadow:0 8px 40px rgba(0,0,0,.5);transition:opacity .4s}
+  .app.perform .perform-hud{display:flex}
+  .perform-hud.idle{opacity:0}
+  .perform-hud .ph-name b{font-size:14px}
+  .perform-hud .ph-name span{display:block;font-size:10px;color:var(--dim);margin-top:1px}
+  .ph-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;
+    border-radius:9px;padding:7px 11px;font-size:12px;cursor:pointer}
+  .ph-btn:hover{background:rgba(255,255,255,.16)}
+  .ph-en{display:flex;align-items:center;gap:7px}
+  .ph-en input[type=range]{width:120px}
+  .ph-en b{min-width:24px;text-align:right}
+  /* panel */
+  .panel{width:340px;flex:none;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;overflow:hidden}
+  .ph{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .ph h1{margin:0;font-size:15px;letter-spacing:.02em}
+  .ph p{margin:4px 0 0;font-size:11.5px;color:var(--dim);line-height:1.5}
+  .scroll{flex:1;overflow-y:auto;padding:14px 16px 90px}
+  .scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:#2a2e3a;border-radius:4px}
+  .sec{margin-bottom:18px}
+  /* collapsible groups */
+  .group{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#10121a}
+  .group-head{display:flex;align-items:center;gap:6px;padding:11px 13px;cursor:pointer;font-size:12.5px;
+    font-weight:600;letter-spacing:.01em;color:#dfe4f2;user-select:none}
+  .group-head:hover{background:#161922}
+  .group-head .chev{margin-left:auto;color:var(--dim);transition:.18s;font-size:11px}
+  .group.open .group-head .chev{transform:rotate(180deg)}
+  .group-body{display:none;padding:2px 13px 4px}
+  .group.open>.group-body{display:block}
+  .group-body .sec:last-child{margin-bottom:10px}
+  /* top description bar */
+  .desc-bar{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:5;
+    display:flex;align-items:center;gap:9px;max-width:80%;
+    background:rgba(12,14,20,.72);backdrop-filter:blur(8px);border:1px solid var(--line);
+    padding:7px 15px;border-radius:20px;font-size:12.5px;color:var(--dim);pointer-events:none;
+    box-shadow:0 4px 20px rgba(0,0,0,.4)}
+  .desc-bar b{color:#fff;font-size:13px}
+  .desc-bar b::after{content:"";display:inline-block;width:1px;height:12px;background:var(--line);
+    margin-left:9px;vertical-align:middle}
+  /* point handles */
+  .pt{position:absolute;width:30px;height:30px;margin:-15px;border-radius:50%;
+    border:2px solid #fff;background:rgba(91,140,255,.35);backdrop-filter:blur(2px);
+    display:none;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;
+    cursor:grab;z-index:7;box-shadow:0 0 0 2px rgba(0,0,0,.4),0 2px 10px rgba(0,0,0,.5);touch-action:none}
+  .pt:active{cursor:grabbing;transform:scale(1.12)}
+  .pt.ptB{background:rgba(255,91,156,.35)}
+  .pt.ghost{border-style:dashed;opacity:.8}              /* VR 반대쪽 눈 미러 핸들 */
+  .pt .zbadge{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;
+    color:#cfe0ff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:7px;white-space:nowrap;display:none}
+  .pt.show .zbadge{display:block}
+  .pt.show{display:flex}
+  .pt-line{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6;display:none}
+  .pt-line.show{display:block}
+  .pt-line line{stroke:rgba(255,255,255,.5);stroke-width:2;stroke-dasharray:6 6}
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:50}
+  .modal.show{display:flex}
+  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    width:min(560px,90vw);max-height:84vh;overflow:auto;padding:16px 18px;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+  .modal-head{display:flex;align-items:center;font-size:14px;font-weight:600;margin-bottom:10px}
+  .modal-box pre{background:#0c0e14;border:1px solid var(--line);border-radius:9px;padding:13px;
+    font-size:11.5px;line-height:1.6;color:#cfd6ea;white-space:pre-wrap;word-break:break-word;
+    max-height:54vh;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .lab{display:flex;justify-content:space-between;align-items:center;font-size:11px;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:8px}
+  .lab b{color:var(--acc);font-size:11px;font-weight:600}
+  .grid{display:grid;gap:7px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  button.opt.sm{padding:8px 4px;text-align:center;font-size:11px}
+  button.opt{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:9px 8px;border-radius:9px;font-size:12.5px;cursor:pointer;transition:.12s;text-align:left}
+  button.opt:hover{border-color:#3a4050}
+  button.opt.on{background:linear-gradient(135deg,rgba(91,140,255,.22),rgba(255,91,156,.18));
+    border-color:var(--acc);box-shadow:0 0 0 1px rgba(91,140,255,.3) inset}
+  button.opt small{display:block;color:var(--dim);font-size:10px;margin-top:2px;line-height:1.3}
+  .tier-div{grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--dim);
+    margin:7px 2px 0;padding-bottom:3px;border-bottom:1px solid var(--line)}
+  button.opt.on small{color:#b9c2e0}
+  input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:3px;
+    background:#2a2e3a;outline:none;margin:6px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--acc);cursor:pointer;border:2px solid #0a0b0f;box-shadow:0 0 0 1px var(--acc)}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap}
+  .swatch{flex:1;min-width:54px;height:30px;border-radius:7px;border:2px solid transparent;cursor:pointer;
+    display:flex;overflow:hidden;position:relative}
+  .swatch.on{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.2)}
+  .swatch span{flex:1}
+  .swatch em{position:absolute;left:0;right:0;bottom:0;font-size:8.5px;font-style:normal;text-align:center;
+    background:rgba(0,0,0,.45);color:#fff;letter-spacing:.03em}
+  .bgrow{display:flex;gap:7px}
+  .bgc{flex:1;height:30px;border-radius:7px;border:2px solid transparent;cursor:pointer;position:relative}
+  .bgc.on{border-color:#fff}
+  .footer{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,transparent,var(--panel) 24%);
+    padding:14px 16px 16px}
+  .actions{display:flex;gap:8px}
+  .btn{flex:1;border:none;border-radius:11px;padding:13px;font-size:13.5px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:7px;transition:.12s}
+  .btn.play{background:#222633;color:#fff}.btn.play:hover{background:#2c3142}
+  .btn.rec{background:var(--rec);color:#fff}.btn.rec:hover{filter:brightness(1.08)}
+  .btn.rec.recording{background:#7a1f1f;animation:pulse 1.2s infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,64,64,.15)}}
+  .hint{font-size:10.5px;color:var(--dim);margin-top:9px;line-height:1.55}
+  .hint b{color:#b9c2e0}
+  .toggle{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+  .toggle button{flex:1;border:none;background:transparent;color:var(--dim);padding:7px;border-radius:7px;
+    font-size:12px;cursor:pointer}
+  .toggle button.on{background:var(--acc);color:#fff}
+  kbd{background:#222633;border:1px solid #2e3340;border-radius:4px;padding:1px 5px;
+    font-family:inherit;font-size:10px;color:#c8d2f0}
+  .kb{font-size:10px;color:#5a6072;margin-top:4px;line-height:1.6}
+  /* audio */
+  .aud-drop{border:1px dashed #39405a;border-radius:9px;padding:13px 10px;text-align:center;
+    font-size:11.5px;color:var(--dim);cursor:pointer;transition:.12s}
+  .aud-drop:hover,.aud-drop.drag{border-color:var(--acc);color:#c8d2f0;background:rgba(91,140,255,.06)}
+  .aud-drop.loaded{border-style:solid;border-color:#2e4a36;color:#9fdcb0;background:rgba(57,217,138,.05)}
+  .vis-wrap{position:relative;margin-top:9px;background:#0c0e14;border:1px solid var(--line);
+    border-radius:8px;overflow:hidden;height:46px}
+  #vis{display:block;width:100%;height:46px}
+  #beatDot{position:absolute;top:7px;right:8px;width:9px;height:9px;border-radius:50%;
+    background:#2a2e3a;transition:.05s}
+  #beatDot.on{background:var(--acc2);box-shadow:0 0 12px var(--acc2)}
+  .aud-row{display:flex;gap:7px;margin-top:8px}
+  .mini{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:8px;border-radius:8px;font-size:11.5px;cursor:pointer}
+  .mini:hover{border-color:#3a4050}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="desc-bar" id="descBar"><b id="descName">Impact Slash</b><span id="descText">강렬한 빛·파편·충격파</span></div>
+    <div class="canvas-wrap">
+      <canvas id="main" width="1920" height="1080"></canvas>
+      <div class="badge" id="badge">16:9 · 1920×1080</div>
+      <div class="rec-dot" id="recDot"><i></i><span id="recTime">REC 0.0s</span></div>
+      <svg class="pt-line" id="ptLine"><line x1="0" y1="0" x2="0" y2="0"/></svg>
+      <svg class="pt-line" id="ptLine2"><line x1="0" y1="0" x2="0" y2="0"/></svg>
+      <div class="pt ptA" id="ptA">A</div>
+      <div class="pt ptB" id="ptB">B</div>
+      <div class="pt ptA ghost" id="ptA2">A</div>
+      <div class="pt ptB ghost" id="ptB2">B</div>
+      <div class="timeline"><i id="tlbar"></i></div>
+    </div>
+  </div>
+
+  <!-- 레시피 모달 -->
+  <div class="modal" id="recipeModal">
+    <div class="modal-box">
+      <div class="modal-head">📋 현재 조합 · 레시피<span id="recipeClose" style="margin-left:auto;cursor:pointer">✕</span></div>
+      <pre id="recipeText"></pre>
+      <div class="aud-row">
+        <button class="mini" id="recipeCopy">복사</button>
+        <button class="mini" id="recipeSave">.txt 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph">
+      <h1>🎬 Transition Studio</h1>
+      <p>그린스크린 위에 트랜지션/특수효과를 그려 녹화 → 편집기에서 키잉해 트랜지션 소스로 사용. 알파(투명) 출력도 지원합니다.</p>
+    </div>
+
+    <div class="scroll">
+      <!-- EFFECT (항상 열림) -->
+      <div class="sec">
+        <div class="lab">효과 <b id="effName">Impact Slash</b></div>
+        <div class="grid g2" id="effGrid"></div>
+      </div>
+
+      <!-- 기본 설정 -->
+      <div class="group open">
+        <div class="group-head">⚙️ 기본 설정<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="lab">캔버스 비율</div>
+            <div class="toggle" id="aspectTg">
+              <button data-a="land" class="on">가로 16:9</button>
+              <button data-a="port">세로 9:16</button>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="lab">길이 <b id="durV">1.6s</b></div>
+            <input type="range" id="dur" min="0.4" max="6" step="0.1" value="1.6">
+            <div class="lab" style="margin-top:10px">강도(크기) <b id="intV">100%</b></div>
+            <input type="range" id="int" min="20" max="200" step="5" value="100">
+            <div class="lab" style="margin-top:10px">⚡ Energy (자극 강도) <b id="energyV">50</b></div>
+            <input type="range" id="energy" min="0" max="100" step="1" value="50">
+            <div class="kb">한 노브로 전체 분위기 조절: <b>낮으면</b> 글로우↑·플래시 억제·차분(명상), <b>높으면</b> 컷/비트펀치↑·격렬. 광과민 안전 상한 포함. (강도=크기, Energy=자극 세기)</div>
+          </div>
+          <div class="sec">
+            <div class="lab">색상 팔레트</div>
+            <div class="swatches" id="palRow"></div>
+          </div>
+          <div class="sec">
+            <div class="lab">방향</div>
+            <div class="toggle" id="dirTg">
+              <button data-d="forward" class="on">정방향 ▶</button>
+              <button data-d="reverse">역방향 ◀</button>
+            </div>
+            <div class="lab" style="margin-top:12px">크로마키 배경색</div>
+            <div class="bgrow" id="bgRow">
+              <div class="bgc on" data-bg="#00ff00" style="background:#00ff00"></div>
+              <div class="bgc" data-bg="#0000ff" style="background:#0000ff"></div>
+              <div class="bgc" data-bg="#ff00ff" style="background:#ff00ff"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 음악 비트 -->
+      <div class="group">
+        <div class="group-head">🎵 음악 비트 연동 <b id="bpmV" style="margin-left:auto;margin-right:6px"></b><span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="aud-drop" id="audDrop">음악 파일을 끌어다 놓거나 클릭해서 선택
+              <input type="file" id="audFile" accept="audio/*" hidden></div>
+            <div class="vis-wrap"><canvas id="vis" width="300" height="46"></canvas><i id="beatDot"></i></div>
+            <div class="toggle" id="reactTg" style="margin-top:8px">
+              <button data-r="off" class="on">반응 OFF</button>
+              <button data-r="on">비트 반응 ON</button>
+            </div>
+            <div class="aud-row">
+              <button class="mini" id="audPlay">⏯ 음악 재생/일시정지</button>
+              <button class="mini" id="syncLen">길이 = 4비트</button>
+            </div>
+            <div class="lab" style="margin-top:10px">비트 감도 <b id="sensV">표준</b></div>
+            <input type="range" id="sens" min="105" max="170" step="1" value="135">
+            <div class="kb">음악 없이 ON 하면 120BPM 가상 비트로 미리보기됩니다. 녹화엔 <b>영상만</b> 담기니, 편집기에서 같은 곡을 얹으면 동기화됩니다. ♪ 표시 효과는 비트 특화.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 퍼폼 · 전환 -->
+      <div class="group">
+        <div class="group-head">🎬 퍼폼 · 전환 (감상/VJ)<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <button class="btn play" id="performBtn" style="width:100%">🖥 퍼폼(감상) 모드 시작</button>
+            <div class="kb">패널을 숨기고 풀스크린 검정 배경으로 감상. 음악 틀고 <kbd>,</kbd> <kbd>.</kbd> 로 효과를 에너지 순서대로 넘기며 VJ처럼 즐기세요. <kbd>Esc</kbd> 로 나가기.</div>
+          </div>
+          <div class="sec">
+            <div class="lab">효과 전환 방식</div>
+            <div class="toggle" id="xfadeTg">
+              <button data-x="off" class="on">하드컷</button>
+              <button data-x="on">크로스페이드</button>
+            </div>
+            <div class="lab" style="margin-top:10px">전환 길이 <b id="xfDurV">0.5s</b></div>
+            <input type="range" id="xfDur" min="2" max="15" step="1" value="5">
+            <div class="kb">크로스페이드는 이전·다음 효과가 짧게 겹쳐 섞이며 넘어갑니다(감정 연속). 녹화 단일 트랜지션엔 하드컷 권장.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VR · 입체 -->
+      <div class="group">
+        <div class="group-head">🥽 VR · 입체 (좌/우 양안)<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="toggle" id="vrTg">
+              <button data-v="off" class="on">일반</button>
+              <button data-v="on">VR SBS (좌/우)</button>
+            </div>
+            <div class="lab" style="margin-top:10px">양안 시차(깊이) <b id="vrSepV">6</b></div>
+            <input type="range" id="vrSep" min="0" max="40" step="1" value="6">
+            <div class="kb">가까운 요소일수록 좌우 차이가 커져 실제 깊이감이 생깁니다(Tunnel·Dream·Whirl·Poly에서 강함).</div>
+            <div class="lab" style="margin-top:10px">수렴면(튀어나옴 ↔ 깊이) <b id="convV">0</b></div>
+            <input type="range" id="conv" min="-30" max="30" step="1" value="0">
+            <div class="kb">0 기준. <b>−</b>면 화면 앞으로 <b>튀어나오고</b>, <b>+</b>면 화면 안쪽으로 들어갑니다(zero-parallax 이동).</div>
+            <div class="lab" style="margin-top:10px">🐟 피쉬아이(배럴 렌즈) <b id="fishV">0%</b></div>
+            <input type="range" id="fish" min="0" max="100" step="1" value="0">
+            <div class="kb">중심이 볼록해지는 렌즈 왜곡. VR이면 좌·우 눈에 각각 적용돼 헤드셋 렌즈 느낌을 줍니다.</div>
+          </div>
+          <div class="sec">
+            <div class="lab">👓 애너글리프 미리보기(적/청)</div>
+            <div class="toggle" id="anaTg">
+              <button data-an="off" class="on">OFF</button>
+              <button data-an="on">적/청 ON</button>
+            </div>
+            <div class="kb">VR ON 상태에서 켜면 좌=빨강·우=시안으로 합성 → 적청 안경으로 깊이를 바로 확인. (감상/체크용)</div>
+          </div>
+          <div class="sec">
+            <div class="lab">입체 예제(프리셋)</div>
+            <div class="grid g2" id="depthPresets">
+              <button class="opt sm" data-dp="flat">기본 입체</button>
+              <button class="opt sm" data-dp="pop">팝아웃(튀어나옴)</button>
+              <button class="opt sm" data-dp="deep">깊은 공간</button>
+              <button class="opt sm" data-dp="dome">돔/피쉬아이</button>
+            </div>
+            <div class="kb">한 번에 VR+시차+수렴면+깊이를 세팅한 예제. Tunnel·Dream·Cosmos 효과와 잘 어울립니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 움직임 · 만화경 -->
+      <div class="group">
+        <div class="group-head">🌀 움직임 · 만화경<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="lab">반복 움직임 (진동)</div>
+            <div class="grid g4" id="oscGrid">
+              <button class="opt sm on" data-o="off">없음</button>
+              <button class="opt sm" data-o="h">좌우 ↔</button>
+              <button class="opt sm" data-o="v">상하 ↕</button>
+              <button class="opt sm" data-o="orbit">원형 ○</button>
+            </div>
+            <div class="lab" style="margin-top:10px">진폭 <b id="oscAmtV">0%</b></div>
+            <input type="range" id="oscAmt" min="0" max="100" step="1" value="0">
+            <div class="lab" style="margin-top:8px">속도 <b id="oscSpV">1.0×</b></div>
+            <input type="range" id="oscSp" min="10" max="400" step="5" value="100">
+          </div>
+          <div class="sec">
+            <div class="lab">만화경 대칭 (환각 연출) <b id="kalV">OFF</b></div>
+            <div class="grid g4" id="kalGrid">
+              <button class="opt sm on" data-k="0">OFF</button>
+              <button class="opt sm" data-k="4">4분할</button>
+              <button class="opt sm" data-k="6">6분할</button>
+              <button class="opt sm" data-k="8">8분할</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 색 · 질감 -->
+      <div class="group">
+        <div class="group-head">🎨 색 · 질감<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="lab">🎯 타겟 색상 강조</div>
+            <div class="aud-row">
+              <input type="color" id="targetCol" value="#ff2bd6"
+                style="flex:0 0 46px;height:34px;border:1px solid var(--line);border-radius:8px;background:none;cursor:pointer;padding:2px">
+              <button class="mini" id="targetApply">팔레트에 적용</button>
+            </div>
+            <div class="kb"><b>Chroma Surge</b>가 이 색으로 강한 트랜지션을 만듭니다. '적용' 시 모든 효과 팔레트 맨 앞에 들어갑니다.</div>
+          </div>
+          <div class="sec">
+            <div class="lab">부드러움(글로우) <b id="softV">35%</b></div>
+            <input type="range" id="soft" min="0" max="100" step="1" value="35">
+            <div class="lab" style="margin-top:10px">심리스 루프</div>
+            <div class="toggle" id="seamTg">
+              <button data-s="off" class="on">트랜지션(컷)</button>
+              <button data-s="on">루프(끊김없음)</button>
+            </div>
+            <div class="kb">루프 모드는 컷 화이트아웃을 빼서 처음↔끝이 이어집니다. Aurora·Liquid·Dream·Whirl이 배경 루프에 좋아요.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 포인트 (타격/시작점) -->
+      <div class="group">
+        <div class="group-head">🎯 포인트 · 타격/시작점<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="toggle" id="ptShowTg">
+              <button data-ps="on" class="on">포인트 표시</button>
+              <button data-ps="off">숨김</button>
+            </div>
+            <div class="kb">화면 위 <b>A</b> 핸들을 드래그해 효과의 중심/타격점을 옮깁니다. (Impact·Hit·Lightning·Tunnel·Cosmos·Vessel·Iris·Whirl·Fountain 등에 적용)
+              <br><b>VR일 때</b>: 좌·우 눈에 핸들이 <b>각각(미러)</b> 표시돼 보이는 위치=실제 효과 위치로 정확해집니다. 둘 사이 간격 = 깊이(시차). 핸들 위에서 <b>마우스 휠</b>로 앞↔뒤 깊이를 밀 수 있어요.</div>
+            <div class="lab" style="margin-top:8px">A 깊이 z(VR 입체) <b id="zaV">0.0</b></div>
+            <input type="range" id="za" min="-100" max="100" step="1" value="0">
+          </div>
+          <div class="sec">
+            <div class="lab">A → B 이동 트랜지션</div>
+            <div class="toggle" id="moveTg">
+              <button data-m="off" class="on">고정(A)</button>
+              <button data-m="on">A→B 이동</button>
+            </div>
+            <div class="lab" style="margin-top:8px">B 깊이 z <b id="zbV">0.0</b></div>
+            <input type="range" id="zb" min="-100" max="100" step="1" value="0">
+            <div class="kb">ON이면 효과 중심이 진행(p)에 따라 A에서 B로 이동합니다. VR에서는 z로 앞↔뒤(깊이)까지 이동 — 특정 지점에서 특정 지점으로 빨려가는 입체 트랜지션.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 워크플로 · 레시피 -->
+      <div class="group">
+        <div class="group-head">📋 워크플로 · 레시피<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="kb" style="line-height:1.7">
+              <b>이상적인 조작 순서</b><br>
+              ① 효과 선택 → ② 비율·길이·강도 → ③ 팔레트·방향·배경 →<br>
+              ④ 포인트(A 위치/깊이, A→B) → ⑤ 움직임·만화경 →<br>
+              ⑥ 부드러움·루프 → ⑦ VR 입체 → ⑧ 음악 비트 →<br>
+              ⑨ 미리보기 확인 → ⑩ 출력모드 → ⑪ 녹화 / PNG 시퀀스.
+            </div>
+            <button class="mini" id="recipeBtn" style="margin-top:8px;width:100%">📋 현재 조합·순서 보기 / 저장</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 출력 · 내보내기 -->
+      <div class="group">
+        <div class="group-head">🎞 출력 · 내보내기<span class="chev">▾</span></div>
+        <div class="group-body">
+          <div class="sec">
+            <div class="lab">출력 모드</div>
+            <div class="toggle" id="outTg">
+              <button data-o="green" class="on">그린스크린</button>
+              <button data-o="alpha">투명 알파 webm</button>
+            </div>
+            <div class="kb">알파 webm은 DaVinci 등 일부만 지원. FCP/프리미어용 투명 소스는 아래 <b>PNG 시퀀스</b>를 쓰세요.</div>
+          </div>
+          <div class="sec">
+            <div class="lab">🎞 내보내기 (FCP/프리미어 호환)</div>
+            <div class="aud-row">
+              <select id="seqFps" class="mini" style="flex:0 0 86px">
+                <option value="24">24fps</option><option value="30" selected>30fps</option><option value="60">60fps</option>
+              </select>
+              <button class="mini" id="seqBtn">🎞 PNG 시퀀스(알파) 내보내기</button>
+            </div>
+            <div class="kb">녹화 버튼은 불투명을 <b>MP4(H.264)</b>로 저장 → FCP/프리미어 바로 임포트. <b>투명(알파)</b>은 PNG 시퀀스 — 어디서나 임포트되고 투명 유지.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="actions">
+        <button class="btn play" id="playBtn">▶ 미리보기</button>
+        <button class="btn rec" id="recBtn">● 녹화</button>
+      </div>
+      <div class="hint">
+        <b>사용법</b> · 효과 선택 → 미리보기로 확인 → <b>녹화</b> 누르면 길이만큼 자동 녹화 후 <b>.webm 다운로드</b>.
+        편집기에서 초록(<span style="color:#00ff00">#00ff00</span>)을 크로마키로 제거하면 효과만 남습니다.
+        <div class="kb">단축키 — <kbd>Space</kbd> 재생 · <kbd>R</kbd> 녹화 · <kbd>L</kbd> 반복 · <kbd>1~9</kbd> 효과 · <kbd>,</kbd> <kbd>.</kbd> 효과 넘기기 · <kbd>[</kbd> <kbd>]</kbd> Energy · <kbd>P</kbd> 퍼폼 · <kbd>V</kbd> VR · <kbd>K</kbd> 만화경</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 퍼폼(감상) 모드 HUD -->
+  <div class="perform-hud" id="performHUD">
+    <div class="ph-name"><b id="phEff">—</b><span id="phTier"></span></div>
+    <button class="ph-btn" id="phPrev">◀ 이전</button>
+    <button class="ph-btn" id="phNext">다음 ▶</button>
+    <span class="ph-en">⚡<input type="range" id="phEnergy" min="0" max="100" value="50"><b id="phEnergyV">50</b></span>
+    <button class="ph-btn" id="phExit">나가기 (Esc)</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Transition Studio
+   - main canvas: 크로마키 배경(초록 등) + FX 합성, 화면표시/녹화 대상
+   - fx canvas  : 투명 레이어. 효과끼리만 가산혼합 → 초록 오염 방지
+                  알파 출력 시 이 캔버스를 직접 녹화
+   ============================================================ */
+const main = document.getElementById('main');
+const mctx = main.getContext('2d');
+const fx = document.createElement('canvas');
+const fctx = fx.getContext('2d');
+const rx = document.createElement('canvas');          // 후처리 스크래치(만화경)
+const rxctx = rx.getContext('2d');
+const kx = document.createElement('canvas');          // VR 합성 버퍼
+const kxctx = kx.getContext('2d');
+const bx = document.createElement('canvas');          // 크로스페이드 'from' 버퍼
+const bxctx = bx.getContext('2d');
+
+const state = {
+  effect:'impact', aspect:'land', duration:1.6, intensity:1.0, energy:50,
+  palette:'neon', direction:'forward', bg:'#00ff00', out:'green',
+  loop:true, playing:false, recording:false, seed:1234,
+  reactive:false, audioSens:1.35,
+  vr:false, vrSep:6, osc:'off', oscAmt:0, oscSpeed:1,
+  kaleido:0, targetColor:'#ff2bd6', useTarget:false,
+  soft:0.35, seamless:false,
+  origin:{x:0.5,y:0.5,z:0}, target:{x:0.5,y:0.5,z:0}, move:false, showPoints:true,
+  // --- 퍼폼(감상) · 전환 ---
+  perform:false,            // 풀스크린 감상 모드(패널 숨김 + 검정 뷰 배경)
+  crossfade:false, xfadeDur:0.5, // 효과 전환: false=하드컷, true=크로스페이드(겹쳐 섞임)
+  // --- 입체 심화 (v11) ---
+  converge:0,               // 수렴면(zero-parallax) 이동(px). +면 안쪽, -면 앞으로 튀어나옴
+  anaglyph:false,           // 적/청 애너글리프 미리보기(헤드셋 없이 깊이 확인)
+  fisheye:0                 // 피쉬아이/배럴 디스토션 0~1 (VR이면 눈별로 적용)
+};
+
+/* ---------- palettes (초록 회피: 키잉 오염 방지) ---------- */
+const PALETTES = {
+  neon:   {name:'Neon',   c:['#00e5ff','#ff2bd6','#ffe600','#ffffff','#7a5bff']},
+  fire:   {name:'Fire',   c:['#ff3b00','#ff8a00','#ffd000','#fff3c4','#ff0048']},
+  ocean:  {name:'Ocean',  c:['#00d4ff','#0066ff','#6ad9ff','#ffffff','#9b5bff']},
+  aurora: {name:'Aurora', c:['#8a5bff','#ff5bc8','#5b9bff','#00e0ff','#e8b3ff']},
+  candy:  {name:'Candy',  c:['#ff8fb1','#c39bff','#ffd6a5','#a0e7ff','#fff0f5']},
+  mono:   {name:'Mono',   c:['#ffffff','#dfe6ff','#aab4d4','#ffffff','#c8d2f0']},
+  sunset: {name:'Sunset', c:['#ff2e63','#ff8c42','#ffd23f','#a64dff','#ff5e7e']},
+  rainbow:{name:'Rainbow',c:['#ff0040','#ff8a00','#ffe600','#00d4ff','#a64dff']},
+  psy:    {name:'Psychedelic',c:['#ff00aa','#00ffd5','#ffea00','#8a00ff','#ff5e00']}
+};
+
+/* ---------- effect registry ---------- */
+const EFFECTS = {
+  impact:{label:'Impact Slash', desc:'강렬한 빛·파편·충격파', mode:'lighter'},
+  drift: {label:'Emotional Drift', desc:'잔잔한 빛결·부드러운 흐름', mode:'source-over'},
+  tunnel:{label:'Tunnel Pull', desc:'입체 터널로 빨려들기', mode:'lighter'},
+  color: {label:'Color Burst', desc:'다채로운 리본·파동', mode:'lighter'},
+  glitch:{label:'Glitch Slice', desc:'디지털 RGB 분열', mode:'lighter'},
+  prism: {label:'Prism Sweep', desc:'프리즘 빛 스윕', mode:'lighter'},
+  pulse: {label:'Pulse Core ♪', desc:'비트마다 터지는 코어·링', mode:'lighter'},
+  focus: {label:'Focus Rush ♪', desc:'중심으로 빨아들이는 집중 연출', mode:'lighter'},
+  heart: {label:'Heartbeat Drift ♪', desc:'잔잔함 + 심장박동 비트', mode:'source-over'},
+  poly:  {label:'Polygon Storm', desc:'폴리곤·파티클 폭풍', mode:'lighter'},
+  dream: {label:'Dream Vortex', desc:'몽환·환각 소용돌이로 빨려듦', mode:'source-over'},
+  chroma:{label:'Chroma Surge', desc:'지정한 타겟 색의 강력한 트랜지션', mode:'source-over'},
+  aurora:{label:'Aurora Veil', desc:'볼류메트릭 오로라 커튼(선 없음)', mode:'source-over'},
+  liquid:{label:'Liquid Bloom', desc:'잉크처럼 번지는 그라디언트 블롭', mode:'lighter'},
+  jelly: {label:'Jelly Squish', desc:'말랑말랑 탄성 젤리 촉감', mode:'source-over'},
+  burn:  {label:'Burn Through', desc:'불타며 먹어들어가는 가장자리', mode:'source-over'},
+  tear:  {label:'Tear Rip', desc:'화면이 찢어지며 틈이 벌어짐', mode:'source-over'},
+  hit:   {label:'Impact Hit', desc:'타격·파열: 크랙·충격파·흔들림', mode:'lighter'},
+  whirl: {label:'Whirlpool', desc:'소용돌이로 휘말려 빨려듦', mode:'lighter'},
+  sparkle:{label:'Sparkle', desc:'반짝이는 명멸 입자·플레어', mode:'lighter'},
+  fountain:{label:'Fountain', desc:'분수처럼 솟구치는 입자', mode:'lighter'},
+  lightning:{label:'Lightning', desc:'포인트에서 갈래치는 번개', mode:'lighter'},
+  neuron:{label:'Neuron Net', desc:'신경망 노드+시냅스 빛 펄스', mode:'lighter'},
+  cosmos:{label:'Cosmos Warp', desc:'성운+포인트로 쏟아지는 별', mode:'lighter'},
+  iris:  {label:'Iris / Eye', desc:'홍채 섬유+동공이 열리며 흡입', mode:'source-over'},
+  clouds:{label:'Clouds', desc:'볼류메트릭 솜 구름', mode:'lighter'},
+  vessel:{label:'Vessel / Veins', desc:'박동하는 혈관·내장(fire 추천)', mode:'lighter'}
+};
+/* 감정 에너지 곡선 순서: 저자극(잔잔) → 고자극(격렬). 음악 비주얼라이제이션의 절→빌드업→드롭을 따라감 */
+const EFFECT_ORDER = [
+  // ① 잔잔 · 여운 (저자극)
+  'drift','heart','clouds','aurora','liquid',
+  // ② 몽환 · 유동
+  'dream','jelly','whirl','tunnel','focus',
+  // ③ 유기 · 우주
+  'neuron','cosmos','iris','vessel','fountain',
+  // ④ 화려 · 광채
+  'color','prism','sparkle','pulse',
+  // ⑤ 격렬 · 타격 (고자극)
+  'poly','glitch','tear','burn','chroma','hit','impact','lightning'
+];
+/* 그리드에 표시할 단계 구분선 (해당 키 앞에 라벨 삽입) */
+const EFFECT_TIERS = [
+  {at:'drift',  label:'① 잔잔 · 여운 — 저자극'},
+  {at:'dream',  label:'② 몽환 · 유동'},
+  {at:'neuron', label:'③ 유기 · 우주'},
+  {at:'color',  label:'④ 화려 · 광채'},
+  {at:'poly',   label:'⑤ 격렬 · 타격 — 고자극'},
+];
+
+/* ============================================================ helpers */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const easeInOut=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const easeIn=t=>t*t;
+const easeInCubic=t=>t*t*t;
+const easeOut=t=>1-Math.pow(1-t,2);
+const easeOutCubic=t=>1-Math.pow(1-t,3);
+const pulse=t=>Math.sin(clamp(t,0,1)*Math.PI);            // 0→1→0
+const smoothstep=(e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);};
+function hexToRgb(h){const n=parseInt(h.slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};}
+function rgba(c,a){return`rgba(${c.r|0},${c.g|0},${c.b|0},${a})`;}
+function mulRgb(c,m){return{r:c.r*m,g:c.g*m,b:c.b*m};}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+let pal = PALETTES.neon.c.map(hexToRgb);
+function applyPalette(){
+  let base=PALETTES[state.palette].c.map(hexToRgb);
+  if(state.useTarget) base=[hexToRgb(state.targetColor),...base];
+  pal=base; rebuild();
+}
+
+/* particle caches rebuilt on (re)start */
+let cache = {};
+function rebuild(){
+  const rng = mulberry32(state.seed);
+  const I = state.intensity;
+  // impact shards
+  cache.shards = Array.from({length:Math.round(60*I)},()=>{
+    const a=rng()*Math.PI*2;
+    return{a,sp:lerp(0.6,1.7,rng()),sz:lerp(8,40,rng()),rot:rng()*6.28,
+      rs:(rng()-.5)*0.4,col:pal[(rng()*pal.length)|0],delay:rng()*0.12,len:lerp(1,2.4,rng())};
+  });
+  // drift bokeh
+  cache.bokeh = Array.from({length:Math.round(46*I)},()=>({
+    x:rng(),y:rng(),r:lerp(0.02,0.13,rng()),vy:lerp(0.01,0.05,rng()),
+    vx:(rng()-.5)*0.03,col:pal[(rng()*pal.length)|0],ph:rng()*6.28,sp:lerp(.4,1.2,rng())}));
+  // color burst sources
+  cache.bursts = Array.from({length:6},(_,i)=>({
+    x:lerp(0.18,0.82,rng()),y:lerp(0.2,0.8,rng()),
+    col:pal[i%pal.length],delay:rng()*0.35,thick:lerp(0.04,0.11,rng())}));
+  cache.ribbons = Array.from({length:5},(_,i)=>({
+    y:lerp(0.15,0.85,rng()),amp:lerp(0.05,0.18,rng()),freq:lerp(1.5,4,rng()),
+    sp:lerp(.6,1.6,rng()),col:pal[i%pal.length],ph:rng()*6.28,h:lerp(0.05,0.14,rng())}));
+  cache.pulseRings=[];
+}
+
+/* ============================================================ EFFECTS */
+const W=()=>main.width, H=()=>main.height;
+
+function fxImpact(p,w,h,time){
+  const I=state.intensity, cx=ox(w)+ozPar(), cy=oy(h);
+  const dir = state.direction==='reverse';
+  let pp = dir ? 1-p : p;
+  // screen shake around impact (0.4)
+  const shakeAmt = pulse(smoothstep(0.25,0.55,pp)) * 26 * I;
+  const rng = mulberry32(state.seed+99);
+  fctx.save();
+  fctx.translate((rng()-.5)*shakeAmt,(rng()-.5)*shakeAmt);
+
+  // slashes 0.12 → 0.42
+  const slashP = smoothstep(0.10,0.42,pp);
+  for(let s=0;s<3;s++){
+    const ang = -0.6 + s*0.5;
+    const prog = clamp(slashP*1.1 - s*0.08,0,1);
+    if(prog<=0||prog>=1) continue;
+    const a = rgba({r:255,g:255,b:255}, (1-Math.abs(prog*2-1))*1);
+    const len = Math.hypot(w,h);
+    const px = lerp(-len, len, prog);
+    fctx.save();
+    fctx.translate(cx,cy); fctx.rotate(ang);
+    const grad=fctx.createLinearGradient(px-260,0,px+260,0);
+    const c=pal[s%pal.length];
+    grad.addColorStop(0,rgba(c,0)); grad.addColorStop(.5,a); grad.addColorStop(1,rgba(c,0));
+    fctx.fillStyle=grad;
+    fctx.fillRect(px-260,-len, 520, len*2);
+    fctx.restore();
+  }
+
+  // impact flash (full coverage = 컷 지점) around 0.42
+  const flash = pulse(smoothstep(0.30,0.5,pp)*(pp<0.5?1:1))*Math.max(0,1-Math.abs(pp-0.44)*5);
+  if(flash>0.01){
+    const g=fctx.createRadialGradient(cx,cy,0,cx,cy,Math.hypot(w,h)*0.6);
+    g.addColorStop(0,`rgba(255,255,255,${clamp(flash*1.4,0,1)})`);
+    g.addColorStop(.4,`rgba(255,255,255,${clamp(flash,0,1)})`);
+    g.addColorStop(1,`rgba(255,255,255,0)`);
+    fctx.fillStyle=g; fctx.fillRect(0,0,w,h);
+  }
+
+  // shockwaves
+  const swP = smoothstep(0.4,1,pp);
+  for(let r=0;r<3;r++){
+    const rp = clamp(swP - r*0.12,0,1);
+    if(rp<=0) continue;
+    const rad = rp*Math.hypot(w,h)*0.65;
+    const c=pal[(r+1)%pal.length];
+    fctx.strokeStyle=rgba(c,(1-rp)*0.9);
+    fctx.lineWidth=clamp((1-rp)*38*I,1,60);
+    fctx.beginPath(); fctx.arc(cx,cy,rad,0,6.2832); fctx.stroke();
+  }
+
+  // debris shards flying outward
+  const dp = smoothstep(0.4,1,pp);
+  cache.shards.forEach(s=>{
+    const t=clamp((dp - s.delay)*s.len,0,1);
+    if(t<=0) return;
+    const dist = easeOut(t)*Math.hypot(w,h)*0.55*s.sp;
+    const x=cx+Math.cos(s.a)*dist, y=cy+Math.sin(s.a)*dist;
+    const al=(1-t)*1;
+    fctx.save(); fctx.translate(x,y); fctx.rotate(s.rot+t*s.rs*20);
+    fctx.fillStyle=rgba(s.col,al);
+    const sz=s.sz*(1-t*0.4)*I;
+    fctx.beginPath();fctx.moveTo(0,-sz);fctx.lineTo(sz*0.5,sz*0.6);fctx.lineTo(-sz*0.5,sz*0.6);fctx.closePath();fctx.fill();
+    fctx.restore();
+  });
+  // center burst glow lingering
+  const glow=Math.max(0,1-Math.abs(pp-0.46)*3.2);
+  if(glow>0.01){
+    const g=fctx.createRadialGradient(cx,cy,0,cx,cy,h*0.5);
+    g.addColorStop(0,rgba(pal[2],glow*0.8));g.addColorStop(1,rgba(pal[2],0));
+    fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  }
+  fctx.restore();
+}
+
+function fxDrift(p,w,h,time){
+  const I=state.intensity;
+  const dir = state.direction==='reverse';
+  let pp = dir ? 1-p : p;
+  // soft luminous veil rises to near-full at mid (잔잔한 전환 컷지점)
+  const veil = pulse(pp);
+  // light leak blobs
+  for(let i=0;i<3;i++){
+    const c=pal[i%pal.length];
+    const bx=w*(0.25+0.5*((i+ Math.sin(time*0.2+i))%1));
+    const by=h*(0.3+0.4*Math.sin(time*0.15+i*2));
+    const rr=h*(0.5+0.25*Math.sin(time*0.3+i));
+    const g=fctx.createRadialGradient(bx,by,0,bx,by,rr);
+    g.addColorStop(0,rgba(c,0.12*veil*I));g.addColorStop(1,rgba(c,0));
+    fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  }
+  // drifting bokeh
+  cache.bokeh.forEach(b=>{
+    const y=(b.y - time*b.vy*0.12)%1; const yy=(y+1)%1;
+    const x=(b.x + Math.sin(time*0.3*b.sp+b.ph)*0.04 + time*b.vx*0.1)%1;
+    const xx=(x+1)%1;
+    const px=xx*w, py=yy*h, r=b.r*h*(0.7+0.3*Math.sin(time+b.ph));
+    const al=(0.10+0.10*Math.sin(time*b.sp+b.ph))*veil*I;
+    const g=fctx.createRadialGradient(px,py,0,px,py,r);
+    g.addColorStop(0,rgba(b.col,al));g.addColorStop(.6,rgba(b.col,al*0.35));g.addColorStop(1,rgba(b.col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(px,py,r,0,6.2832);fctx.fill();
+  });
+  // central soft bloom for the transition cut
+  const bloom=smoothstep(0.35,0.5,pp)*smoothstep(0.65,0.5,pp);
+  if(bloom>0.01){
+    const c=pal[3];
+    const g=fctx.createRadialGradient(w/2,h/2,0,w/2,h/2,Math.hypot(w,h)*0.6);
+    g.addColorStop(0,rgba(c,clamp(bloom*1.1,0,1)));
+    g.addColorStop(.5,rgba(c,bloom*0.5));
+    g.addColorStop(1,rgba(c,0));
+    fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  }
+}
+
+function fxTunnel(p,w,h,time){
+  const I=state.intensity, cx=ox(w)+ozPar(), cy=oy(h);
+  const dir = state.direction==='reverse';
+  const pp = dir ? 1-p : p;
+  const accel = easeInCubic(pp);            // 가속 = 빨려드는 느낌
+  const F = Math.min(w,h)*0.72;             // focal
+  const viewDist = 15;
+  const total = 30;
+  const camZ = accel*total;
+  const swirl = time*0.35 + accel*3.0;
+
+  // soft radial motion haze (선 대신 부드러운 발광 줄기)
+  const slRng = mulberry32(state.seed+7), slCount=Math.round(26*I);
+  for(let i=0;i<slCount;i++){
+    const a=slRng()*6.2832, inner=lerp(0.08,0.4,slRng())*Math.min(w,h)*0.5;
+    const outer=inner+lerp(80,360,slRng())*(0.4+accel);
+    const x1=cx+Math.cos(a)*inner,y1=cy+Math.sin(a)*inner,x2=cx+Math.cos(a)*outer,y2=cy+Math.sin(a)*outer;
+    const c=pal[i%pal.length], g=fctx.createLinearGradient(x1,y1,x2,y2);
+    g.addColorStop(0,rgba(c,0));g.addColorStop(.5,rgba(c,(0.04+0.12*accel)*slRng()));g.addColorStop(1,rgba(c,0));
+    fctx.strokeStyle=g;fctx.lineWidth=lerp(4,14,slRng());
+    fctx.beginPath();fctx.moveTo(x1,y1);fctx.lineTo(x2,y2);fctx.stroke();
+  }
+
+  // rings from far → near : 그라디언트 환형(annulus)으로 두툼한 입체 튜브
+  const i0=Math.floor(camZ)-1, i1=Math.floor(camZ)+viewDist;
+  for(let i=i1;i>=i0;i--){
+    const depth=i - camZ;
+    if(depth<=0.06) continue;
+    const r=F/depth;
+    if(r>Math.hypot(w,h)*1.2) continue;
+    const bright=clamp(1-depth/viewDist,0,1), near=bright;
+    const sway=r*0.05;
+    const ox=cx+Math.cos(swirl+i*0.6)*sway + eyePar(near);              // 스테레오 시차
+    const oy=cy+Math.sin(swirl+i*0.6)*sway;
+    const c=mulRgb(pal[((i%pal.length)+pal.length)%pal.length], 0.45+0.6*bright);
+    const al=bright*0.95, band=clamp(r*0.18,4,120);
+    const g=fctx.createRadialGradient(ox,oy,Math.max(0,r-band),ox,oy,r+band);
+    g.addColorStop(0,rgba(c,0));
+    g.addColorStop(0.45,rgba(c,al));
+    g.addColorStop(0.5,rgba({r:255,g:255,b:255},al*0.5));
+    g.addColorStop(0.55,rgba(c,al));
+    g.addColorStop(1,rgba(c,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(ox,oy,r+band,0,6.2832);fctx.fill();
+  }
+
+  // vanishing-point glow grows → whiteout (컷 지점)
+  const white=state.seamless?0:smoothstep(0.78,1,pp);
+  const coreR = lerp(h*0.06, Math.hypot(w,h)*0.7, easeInCubic(pp));
+  const g=fctx.createRadialGradient(cx,cy,0,cx,cy,coreR);
+  const cc=pal[2];
+  g.addColorStop(0,`rgba(255,255,255,${clamp(0.5+white,0,1)})`);
+  g.addColorStop(0.3,rgba(cc,clamp(0.4+white,0,1)));
+  g.addColorStop(1,rgba(cc,0));
+  fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+
+function fxColor(p,w,h,time){
+  const I=state.intensity;
+  const dir=state.direction==='reverse';
+  const pp=dir?1-p:p;
+  // expanding circular waves
+  cache.bursts.forEach((b,i)=>{
+    const t=clamp((smoothstep(0,0.85,pp)-b.delay)*1.6,0,1);
+    if(t<=0) return;
+    const bx=b.x*w, by=b.y*h;
+    const rad=easeOut(t)*Math.hypot(w,h)*0.85;
+    const thick=b.thick*h*(1-t*0.3)*I;
+    const al=pulse(t)*0.85;
+    const g=fctx.createRadialGradient(bx,by,Math.max(0,rad-thick),bx,by,rad+thick);
+    g.addColorStop(0,rgba(b.col,0));
+    g.addColorStop(.5,rgba(b.col,al));
+    g.addColorStop(1,rgba(b.col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(bx,by,rad+thick,0,6.2832);fctx.fill();
+  });
+  // flowing ribbons
+  const rp=smoothstep(0.1,0.9,pp);
+  cache.ribbons.forEach((rb,i)=>{
+    const al=pulse(pp)*0.7*I;
+    if(al<=0.01) return;
+    fctx.beginPath();
+    const segs=40, hh=rb.h*h*(0.5+rp);
+    for(let s=0;s<=segs;s++){
+      const x=s/segs*w;
+      const y=rb.y*h + Math.sin(x/w*rb.freq*6.2832 + time*rb.sp + rb.ph)*rb.amp*h;
+      if(s===0)fctx.moveTo(x,y-hh); else fctx.lineTo(x,y-hh);
+    }
+    for(let s=segs;s>=0;s--){
+      const x=s/segs*w;
+      const y=rb.y*h + Math.sin(x/w*rb.freq*6.2832 + time*rb.sp + rb.ph)*rb.amp*h;
+      fctx.lineTo(x,y+hh);
+    }
+    fctx.closePath();
+    const grad=fctx.createLinearGradient(0,rb.y*h-hh,0,rb.y*h+hh);
+    grad.addColorStop(0,rgba(rb.col,0));grad.addColorStop(.5,rgba(rb.col,al));grad.addColorStop(1,rgba(rb.col,0));
+    fctx.fillStyle=grad;fctx.fill();
+  });
+  // peak veil so green is fully covered at the cut
+  const veil=Math.max(0,1-Math.abs(pp-0.5)*4);
+  if(veil>0.01){
+    const c=pal[(Math.floor(time*2)%pal.length)];
+    fctx.fillStyle=rgba(c,veil*0.9);fctx.fillRect(0,0,w,h);
+  }
+}
+
+function fxGlitch(p,w,h,time){
+  const I=state.intensity;
+  const dir=state.direction?state.direction==='reverse':false;
+  const pp=dir?1-p:p;
+  const g=pulse(pp); // glitch amount
+  const stutter=Math.floor(time*16);
+  const rng=mulberry32(state.seed+stutter*131+9);
+  // base sweep bar
+  const sweep=smoothstep(0,1,pp);
+  // horizontal RGB-split slices
+  const rows=Math.round(18+24*g);
+  for(let r=0;r<rows;r++){
+    const y=rng()*h, hh=lerp(4,h*0.08,rng());
+    const shift=(rng()-.5)*220*g*I;
+    const ch=rng();
+    const col = ch<0.33?{r:255,g:0,b:60}: ch<0.66?{r:0,g:200,b:255}:pal[(rng()*pal.length)|0];
+    fctx.fillStyle=rgba(col,(0.25+0.5*g)*rng());
+    fctx.fillRect(shift,y,w,hh);
+  }
+  // digital blocks build to coverage
+  const blocks=Math.round(60*g*I);
+  for(let b=0;b<blocks;b++){
+    const bw=lerp(20,180,rng()), bh=lerp(8,80,rng());
+    const x=rng()*w, y=rng()*h;
+    const col=pal[(rng()*pal.length)|0];
+    fctx.fillStyle=rgba(col,(0.3+0.6*g)*rng());
+    fctx.fillRect(x,y,bw,bh);
+  }
+  // scanlines
+  fctx.fillStyle=`rgba(255,255,255,${0.04*g})`;
+  for(let y=0;y<h;y+=4) fctx.fillRect(0,y,w,1);
+  // full RGB-split flash at peak (컷 지점)
+  const flash=Math.max(0,1-Math.abs(pp-0.5)*4.5);
+  if(flash>0.01){
+    fctx.fillStyle=`rgba(255,40,90,${flash*0.6})`;fctx.fillRect(-30*g,0,w,h);
+    fctx.fillStyle=`rgba(0,200,255,${flash*0.6})`;fctx.fillRect(30*g,0,w,h);
+    fctx.fillStyle=`rgba(255,255,255,${flash*0.8})`;fctx.fillRect(0,0,w,h);
+  }
+}
+
+function fxPrism(p,w,h,time){
+  const I=state.intensity;
+  const dir=state.direction==='reverse';
+  const pp=dir?1-p:p;
+  // a prismatic light bar sweeps horizontally
+  const sweep=easeInOut(pp);
+  const cx=lerp(-w*0.3, w*1.3, sweep);
+  const barW=w*0.5*(0.6+0.4*pulse(pp));
+  // rainbow gradient bar
+  const grad=fctx.createLinearGradient(cx-barW/2,0,cx+barW/2,0);
+  const cs=pal;
+  grad.addColorStop(0,'rgba(255,255,255,0)');
+  cs.forEach((c,i)=>grad.addColorStop(lerp(0.15,0.85,i/(cs.length-1)),rgba(c,0.85*I)));
+  grad.addColorStop(1,'rgba(255,255,255,0)');
+  fctx.save();
+  fctx.translate(cx,h/2);fctx.rotate(0.12*Math.sin(time*0.5));
+  fctx.fillStyle=grad;
+  fctx.translate(-cx,-h/2);
+  fctx.fillRect(cx-barW/2,-h*0.2,barW,h*1.4);
+  fctx.restore();
+
+  // bright leading edge core (full coverage at center = 컷)
+  const cover=Math.max(0,1-Math.abs(pp-0.5)*3.4);
+  if(cover>0.01){
+    const g=fctx.createLinearGradient(cx-w*0.15,0,cx+w*0.15,0);
+    g.addColorStop(0,'rgba(255,255,255,0)');
+    g.addColorStop(.5,`rgba(255,255,255,${cover})`);
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  }
+  // lens flare dots along the bar
+  const fr=mulberry32(state.seed+3);
+  for(let i=0;i<10;i++){
+    const fx2=cx+(fr()-.5)*barW;
+    const fy=h*fr();
+    const r=lerp(6,40,fr())*(0.5+pulse(pp));
+    const c=cs[(i%cs.length)];
+    const gg=fctx.createRadialGradient(fx2,fy,0,fx2,fy,r);
+    gg.addColorStop(0,rgba(c,0.6*I));gg.addColorStop(1,rgba(c,0));
+    fctx.fillStyle=gg;fctx.beginPath();fctx.arc(fx2,fy,r,0,6.2832);fctx.fill();
+  }
+  // thin chromatic streaks
+  for(let i=0;i<cs.length;i++){
+    fctx.strokeStyle=rgba(cs[i],0.5*pulse(pp));
+    fctx.lineWidth=2;
+    fctx.beginPath();fctx.moveTo(cx-barW/2+i*6,0);fctx.lineTo(cx-barW/2+i*6,h);fctx.stroke();
+  }
+}
+
+/* ============================================================ AUDIO ENGINE */
+const AUD={ready:false,playing:false,level:0,bass:0,mid:0,treble:0,kick:0,beat:false,bpm:0,
+  spectrum:new Uint8Array(64)};
+let actx=null,analyser=null,srcNode=null,audioEl=null,freqData=null;
+let bassHist=[],lastBeat=-1,beatTimes=[];
+function avgBins(d,a,b){let s=0;for(let i=a;i<b;i++)s+=d[i];return s/((b-a)*255);}
+function loadAudio(file){
+  if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==='suspended')actx.resume();
+  if(!analyser){analyser=actx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=0.78;
+    freqData=new Uint8Array(analyser.frequencyBinCount);}
+  if(audioEl){try{audioEl.pause();}catch(e){}}
+  audioEl=new Audio(URL.createObjectURL(file));audioEl.loop=true;
+  srcNode=actx.createMediaElementSource(audioEl);
+  srcNode.connect(analyser);analyser.connect(actx.destination);
+  audioEl.play();AUD.ready=true;AUD.playing=true;bassHist=[];beatTimes=[];
+}
+function updateAudio(time){
+  if(state.reactive && AUD.ready && analyser){
+    analyser.getByteFrequencyData(freqData);
+    const bass=avgBins(freqData,1,8),mid=avgBins(freqData,8,60),
+          treble=avgBins(freqData,60,260),level=avgBins(freqData,1,260);
+    bassHist.push(bass);if(bassHist.length>43)bassHist.shift();
+    const avgB=bassHist.reduce((a,b)=>a+b,0)/bassHist.length;
+    AUD.beat=false;
+    if(bass>avgB*state.audioSens && bass>0.16 && time-lastBeat>0.16){
+      AUD.beat=true;AUD.kick=1;lastBeat=time;beatTimes.push(time);
+      if(beatTimes.length>9)beatTimes.shift();
+      if(beatTimes.length>3){let d=0;for(let i=1;i<beatTimes.length;i++)d+=beatTimes[i]-beatTimes[i-1];
+        AUD.bpm=Math.round(60/(d/(beatTimes.length-1)));}
+    }
+    AUD.bass=bass;AUD.mid=mid;AUD.treble=treble;AUD.level=level;
+    for(let i=0;i<64;i++)AUD.spectrum[i]=freqData[i*3];
+  } else if(state.reactive){              // 음악 없을 때 120BPM 가상 비트
+    const beatLen=0.5, ph=(time%beatLen)/beatLen;
+    if(ph<0.06 && time-lastBeat>0.3){AUD.beat=true;AUD.kick=1;lastBeat=time;} else AUD.beat=false;
+    AUD.bass=0.35+0.45*Math.pow(1-ph,2);AUD.level=AUD.bass;AUD.mid=AUD.bass*0.6;
+    AUD.treble=0.3+0.3*Math.random();AUD.bpm=120;
+    for(let i=0;i<64;i++)AUD.spectrum[i]=(60+120*AUD.bass)*(0.4+0.6*Math.random());
+  } else { AUD.beat=false; }
+  AUD.kick*=0.86;
+}
+function drawBeatAccents(w,h){
+  const k=AUD.kick;if(k<=0.01)return;
+  fctx.fillStyle=rgba(pal[4],k*0.16*FLASH);fctx.fillRect(0,0,w,h);
+}
+/* visualizer */
+const visC=document.getElementById('vis'),visX=visC.getContext('2d'),beatDot=document.getElementById('beatDot');
+let beatFlash=0;
+function drawVis(){
+  const w=visC.width,h=visC.height,n=AUD.spectrum.length,bw=w/n;
+  visX.clearRect(0,0,w,h);
+  for(let i=0;i<n;i++){
+    const v=AUD.spectrum[i]/255, bh=v*h, c=pal[((i*pal.length/n)|0)%pal.length];
+    visX.fillStyle=rgba(c,0.85);visX.fillRect(i*bw,h-bh,bw-1,bh);
+  }
+  if(AUD.beat)beatFlash=1; beatFlash*=0.85;
+  beatDot.classList.toggle('on',beatFlash>0.3);
+  document.getElementById('bpmV').textContent=(state.reactive&&AUD.bpm)?AUD.bpm+' BPM':'';
+}
+
+/* ============================================================ BEAT-REACTIVE EFFECTS */
+function fxPulseCore(p,w,h,time){
+  const cx=ox(w)+ozPar(),cy=oy(h),I=state.intensity,k=AUD.kick,bass=AUD.bass,treble=AUD.treble;
+  if(AUD.beat) cache.pulseRings.push({t0:time,col:pal[cache.pulseRings.length%pal.length]});
+  cache.pulseRings=cache.pulseRings.filter(r=>time-r.t0<2.2);
+  // concentric rings snap out on each beat
+  cache.pulseRings.forEach(r=>{
+    const age=time-r.t0, rad=age*Math.min(w,h)*0.55, al=clamp(1-age/2.2,0,1);
+    fctx.strokeStyle=rgba(r.col,al*0.85);
+    fctx.lineWidth=clamp((1-age/2.2)*26*I,1,40);
+    fctx.beginPath();fctx.arc(cx,cy,rad,0,6.2832);fctx.stroke();
+  });
+  // breathing central core — inhale between beats, burst on beat (박자감)
+  const base=Math.min(w,h)*0.09, coreR=base*(0.8+2.2*k+0.6*bass);
+  const c=pal[2], g=fctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.4);
+  g.addColorStop(0,`rgba(255,255,255,${clamp(0.7+k,0,1)})`);
+  g.addColorStop(0.4,rgba(c,clamp(0.6+k*0.6,0,1)));
+  g.addColorStop(1,rgba(c,0));
+  fctx.fillStyle=g;fctx.beginPath();fctx.arc(cx,cy,coreR*1.4,0,6.2832);fctx.fill();
+  // treble sparkle shimmer
+  const sr=mulberry32(state.seed+Math.floor(time*20)), sc=Math.round(40*treble*I);
+  for(let i=0;i<sc;i++){
+    const a=sr()*6.2832,d=coreR*(1.2+sr()*2.6);
+    fctx.fillStyle=rgba(pal[i%pal.length],sr()*treble);
+    fctx.beginPath();fctx.arc(cx+Math.cos(a)*d,cy+Math.sin(a)*d,lerp(1,4,sr()),0,6.2832);fctx.fill();
+  }
+  const white=endWhite(p);
+  if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+
+function fxFocusRush(p,w,h,time){
+  const cx=ox(w)+ozPar(),cy=oy(h),I=state.intensity,k=AUD.kick,level=AUD.level||0.4;
+  const hole=Math.min(w,h)*(0.12+0.05*Math.sin(time*2));   // foveal still zone (또렷한 중심)
+  const maxR=Math.hypot(w,h)*0.6;
+  // peripheral motion streaks converging to center → 눈이 중앙으로 끌림
+  const rng=mulberry32(state.seed+Math.floor(time*30)), n=Math.round(110*I);
+  for(let i=0;i<n;i++){
+    const a=rng()*6.2832, r2=lerp(hole,maxR,rng()), speed=lerp(40,260,rng())*(0.5+level+k);
+    const r1=Math.max(hole,r2-speed), al=smoothstep(hole,hole*2.5,r2)*(0.15+0.5*level);
+    fctx.strokeStyle=rgba(pal[i%pal.length],al);
+    fctx.lineWidth=lerp(1,3,rng());
+    fctx.beginPath();
+    fctx.moveTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);
+    fctx.lineTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+    fctx.stroke();
+  }
+  // on-beat chromatic ring collapsing inward (anticipation→snap)
+  if(k>0.02){
+    const rad=hole+maxR*0.6*k, cols=[{r:255,g:60,b:90},{r:60,g:200,b:255},{r:255,g:255,b:255}];
+    cols.forEach((col,s)=>{fctx.strokeStyle=rgba(col,k*0.5);fctx.lineWidth=3;
+      fctx.beginPath();fctx.arc(cx,cy,rad+s*6,0,6.2832);fctx.stroke();});
+  }
+  // crisp central focus bloom
+  const cr=hole*(1.1+0.5*k), g=fctx.createRadialGradient(cx,cy,0,cx,cy,cr*2.5);
+  g.addColorStop(0,`rgba(255,255,255,${0.35+k*0.5})`);
+  g.addColorStop(.4,rgba(pal[0],0.3+k*0.4));
+  g.addColorStop(1,rgba(pal[0],0));
+  fctx.fillStyle=g;fctx.beginPath();fctx.arc(cx,cy,cr*2.5,0,6.2832);fctx.fill();
+  const white=endWhite(p);
+  if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+
+function fxHeart(p,w,h,time){
+  const I=state.intensity,k=AUD.kick,bass=AUD.bass,cx=w/2,cy=h/2;
+  // gentle drifting bokeh, subtly swelling on beat
+  cache.bokeh.forEach(b=>{
+    const yy=((b.y-time*b.vy*0.08)%1+1)%1, xx=((b.x+Math.sin(time*0.25*b.sp+b.ph)*0.05)%1+1)%1;
+    const px=xx*w,py=yy*h,r=b.r*h*(0.7+0.3*Math.sin(time+b.ph))*(1+0.4*k);
+    const al=(0.08+0.10*Math.sin(time*b.sp+b.ph))*(0.6+0.6*bass)*I;
+    const g=fctx.createRadialGradient(px,py,0,px,py,r);
+    g.addColorStop(0,rgba(b.col,al));g.addColorStop(1,rgba(b.col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(px,py,r,0,6.2832);fctx.fill();
+  });
+  // heartbeat swell — soft bloom thumps on each beat (잔잔한 박자)
+  const swell=0.25+0.75*k, c=pal[3], rr=Math.hypot(w,h)*(0.25+0.45*swell);
+  let g=fctx.createRadialGradient(cx,cy,0,cx,cy,rr);
+  g.addColorStop(0,rgba(c,0.15+0.4*k));g.addColorStop(.5,rgba(c,0.07+0.2*k));g.addColorStop(1,rgba(c,0));
+  fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  // slow drifting light leak
+  const lx=w*(0.5+0.4*Math.sin(time*0.2));
+  g=fctx.createRadialGradient(lx,h*0.4,0,lx,h*0.4,h*0.7);
+  g.addColorStop(0,rgba(pal[1],0.08*I));g.addColorStop(1,rgba(pal[1],0));
+  fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  const veil=pulse(p)*(0.4+0.6*bass);
+  if(veil>0.01){fctx.fillStyle=rgba(c,veil*0.6);fctx.fillRect(0,0,w,h);}
+}
+
+/* ============================================================ POLYGON / DREAM / CHROMA */
+function fxPoly(p,w,h,time){
+  const cx=w/2,cy=h/2,I=state.intensity,k=AUD.kick;
+  const rng=mulberry32(state.seed+1), count=Math.round(75*I);
+  for(let i=0;i<count;i++){
+    const sA=rng(),sB=rng(),sC=rng(),sides=3+Math.floor(rng()*5);
+    const depth=((sA+time*0.16*(0.5+sB))%1);                 // 0 멀리 → 1 가까이
+    const ang0=sC*6.2832, rr=depth*Math.hypot(w,h)*0.6*(0.25+sB);
+    const px=cx+Math.cos(ang0)*rr + eyePar(depth), py=cy+Math.sin(ang0)*rr;
+    const size=lerp(2,70,depth)*I*(1+0.35*k), spin=sB*6.28+time*(0.4+sC)*(sB>.5?1:-1);
+    const col=pal[i%pal.length], al=depth*0.9;
+    fctx.save();fctx.translate(px,py);fctx.rotate(spin);
+    fctx.beginPath();
+    for(let s=0;s<sides;s++){const aa=s/sides*6.2832;
+      const x=Math.cos(aa)*size,y=Math.sin(aa)*size*lerp(0.55,1,sC);
+      s?fctx.lineTo(x,y):fctx.moveTo(x,y);}
+    fctx.closePath();
+    fctx.fillStyle=rgba(col,al*0.45);fctx.fill();
+    fctx.lineWidth=2;fctx.strokeStyle=rgba(col,al);fctx.stroke();
+    fctx.restore();
+  }
+  const white=endWhite(p);
+  if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+
+function fxDream(p,w,h,time){
+  const cx=ox(w)+ozPar(),cy=oy(h),I=state.intensity,k=AUD.kick,bass=AUD.bass;
+  // 무지개 소용돌이 팔 (HSL = 무한 색)
+  const arms=6;
+  for(let arm=0;arm<arms;arm++){
+    fctx.beginPath();
+    for(let t=0;t<=1;t+=0.02){
+      const rad=t*Math.hypot(w,h)*0.6;
+      const ang=arm/arms*6.2832 + t*8 - time*1.2;
+      const wob=Math.sin(t*20+time*2)*22*(0.5+k);
+      const x=cx+Math.cos(ang)*(rad+wob), y=cy+Math.sin(ang)*(rad+wob);
+      t===0?fctx.moveTo(x,y):fctx.lineTo(x,y);
+    }
+    fctx.strokeStyle=`hsla(${(time*60+arm*60)%360},100%,62%,${0.45*I})`;
+    fctx.lineWidth=(8+10*Math.sin(time+arm))*(1+k);
+    fctx.stroke();
+  }
+  // 안으로 빨려드는 나선 파티클 (꿈에 빨려들어감)
+  const rng=mulberry32(state.seed+5), n=Math.round(140*I);
+  for(let i=0;i<n;i++){
+    const life=((rng()+time*0.25*(0.5+rng()))%1);
+    const rad=(1-life)*Math.hypot(w,h)*0.55, ang=rng()*6.2832+life*10;
+    const x=cx+Math.cos(ang)*rad + eyePar(life), y=cy+Math.sin(ang)*rad;
+    fctx.fillStyle=`hsla(${(time*80+i*7)%360},100%,66%,${Math.sin(life*Math.PI)*0.9})`;
+    fctx.beginPath();fctx.arc(x,y,lerp(1,5,1-life),0,6.2832);fctx.fill();
+  }
+  // 중심 글로우가 커지며 빨아들임 + 환각 색 워시
+  const cr=Math.hypot(w,h)*(0.1+0.5*easeInCubic(state.direction==='reverse'?1-p:p));
+  const hue=(time*100)%360, g=fctx.createRadialGradient(cx,cy,0,cx,cy,cr);
+  g.addColorStop(0,`hsla(${hue},100%,82%,${0.5+0.4*k})`);
+  g.addColorStop(.5,`hsla(${(hue+120)%360},100%,60%,0.28)`);
+  g.addColorStop(1,`hsla(${(hue+240)%360},100%,50%,0)`);
+  fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  fctx.fillStyle=`hsla(${(time*40)%360},90%,55%,${0.06+0.12*bass})`;fctx.fillRect(0,0,w,h);
+  const white=endWhite(p);
+  if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+
+function fxChroma(p,w,h,time){
+  const t=hexToRgb(state.targetColor), I=state.intensity, k=AUD.kick, cx=w/2,cy=h/2;
+  const pp=state.direction==='reverse'?1-p:p, sweep=easeInOut(pp);
+  // 타겟 색의 잔상 에코가 퍼져나감
+  for(let e=5;e>=0;e--){
+    const ep=clamp(sweep-e*0.06,0,1); if(ep<=0)continue;
+    const rad=ep*Math.hypot(w,h)*0.78, shade=mulRgb(t,lerp(0.5,1.35,1-e/5));
+    fctx.fillStyle=rgba(shade,(1-e/6)*0.7*(0.6+0.6*k)*pulse(ep));
+    fctx.beginPath();fctx.arc(cx,cy,rad,0,6.2832);fctx.fill();
+  }
+  // 타겟 색 스캔 스트릭
+  const rng=mulberry32(state.seed+Math.floor(time*12));
+  for(let i=0;i<Math.round(30*I);i++){
+    const y=rng()*h;
+    fctx.fillStyle=rgba(mulRgb(t,lerp(0.6,1.4,rng())),0.3*pulse(pp));
+    fctx.fillRect(0,y,w,lerp(2,10,rng()));
+  }
+  // 피크에서 타겟 색이 화면을 강하게 덮음(컷 지점 = 강력 보정)
+  const cover=Math.max(0,1-Math.abs(pp-0.5)*3);
+  if(cover>0.01){fctx.fillStyle=rgba(t,cover);fctx.fillRect(0,0,w,h);}
+}
+
+/* ============================================================ VOLUMETRIC / GRADIENT (선 없음) */
+function fxAurora(p,w,h,time){
+  const I=state.intensity,k=AUD.kick;
+  const t=state.seamless ? p*2*Math.PI : time;          // 심리스 루프면 주기적
+  const bands=5;
+  for(let i=0;i<bands;i++){
+    const col=pal[i%pal.length], baseX=(i+0.5)/bands*w, width=w*0.26, near=(i+1)/bands;
+    fctx.beginPath();
+    const segs=26;
+    for(let s=0;s<=segs;s++){const y=s/segs*h;
+      const x=baseX+Math.sin(y/h*3+t*0.8+i)*w*0.06+eyePar(near);
+      s?fctx.lineTo(x-width/2,y):fctx.moveTo(x-width/2,y);}
+    for(let s=segs;s>=0;s--){const y=s/segs*h;
+      const x=baseX+Math.sin(y/h*3+t*0.8+i)*w*0.06+eyePar(near);
+      fctx.lineTo(x+width/2,y);}
+    fctx.closePath();
+    const a=(0.12+0.12*Math.sin(t*1.2+i))*I*(1+0.6*k);
+    const hg=fctx.createLinearGradient(baseX-width/2,0,baseX+width/2,0);
+    hg.addColorStop(0,rgba(col,0));hg.addColorStop(.5,rgba(col,a));hg.addColorStop(1,rgba(col,0));
+    fctx.fillStyle=hg;fctx.fill();
+  }
+  // 위에서 내려오는 부드러운 빛 베일
+  const vg=fctx.createLinearGradient(0,0,0,h);
+  vg.addColorStop(0,rgba(pal[3],0.10*I));vg.addColorStop(.6,rgba(pal[3],0));
+  fctx.fillStyle=vg;fctx.fillRect(0,0,w,h);
+  const veil=pulse(p)*0.4;
+  if(veil>0.01){fctx.fillStyle=rgba(pal[0],veil);fctx.fillRect(0,0,w,h);}
+}
+
+function fxLiquid(p,w,h,time){
+  const I=state.intensity,k=AUD.kick;
+  const t=state.seamless ? p*2*Math.PI : time*0.6;
+  const rng=mulberry32(state.seed+11), n=Math.round(18*I);
+  for(let i=0;i<n;i++){
+    const sx=rng(),sy=rng(),sp=rng();
+    const x=w*(0.5+0.4*Math.sin(t*(0.5+sp)+sx*6.28))+eyePar(0.6);
+    const y=h*(0.5+0.4*Math.cos(t*(0.4+sp)+sy*6.28));
+    const r=lerp(0.12,0.34,sp)*Math.min(w,h)*(0.8+0.4*Math.sin(t+i))*(1+0.3*k);
+    const col=pal[i%pal.length], g=fctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,rgba(col,0.5*I));g.addColorStop(0.6,rgba(col,0.16*I));g.addColorStop(1,rgba(col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(x,y,r,0,6.2832);fctx.fill();
+  }
+  const cr=Math.hypot(w,h)*0.6*pulse(p);
+  if(cr>1){const col=pal[2], g=fctx.createRadialGradient(w/2,h/2,0,w/2,h/2,cr);
+    g.addColorStop(0,rgba(col,0.6));g.addColorStop(.7,rgba(col,0.2));g.addColorStop(1,rgba(col,0));
+    fctx.fillStyle=g;fctx.fillRect(0,0,w,h);}
+}
+
+/* ============================================================ 촉감 / 타격 / 파티클 */
+// 말랑말랑 젤리: 광택 그라디언트 블롭이 탄성 스쿼시로 출렁임
+function fxJelly(p,w,h,time){
+  const cx=w/2,cy=h/2,I=state.intensity,k=AUD.kick;
+  const t=state.seamless?p*2*Math.PI:time*2;
+  const baseR=Math.min(w,h)*(0.2+0.34*pulse(p))*I;
+  const sx=1+0.18*Math.sin(t*3+k*3)+0.25*k, sy=1-0.18*Math.sin(t*3+k*3)-0.1*k;
+  fctx.save();fctx.translate(cx+eyePar(0.7),cy+Math.sin(t*1.5)*h*0.02);fctx.scale(sx,sy);
+  const lobes=7;
+  fctx.beginPath();
+  for(let a=0;a<=64;a++){const ang=a/64*6.2832;
+    const r=baseR*(1+0.06*Math.sin(ang*lobes+t*2)+0.04*Math.sin(ang*3-t));
+    const x=Math.cos(ang)*r,y=Math.sin(ang)*r; a?fctx.lineTo(x,y):fctx.moveTo(x,y);}
+  fctx.closePath();
+  const col=pal[0], g=fctx.createRadialGradient(-baseR*0.3,-baseR*0.35,0,0,0,baseR*1.2);
+  g.addColorStop(0,'rgba(255,255,255,0.92)');g.addColorStop(0.3,rgba(col,0.85));g.addColorStop(1,rgba(mulRgb(col,0.5),0.7));
+  fctx.fillStyle=g;fctx.fill();
+  fctx.restore();
+  const rng=mulberry32(state.seed+21);
+  for(let i=0;i<Math.round(10*I);i++){
+    const ang=rng()*6.2832, d=baseR*(1.1+0.4*Math.sin(t+i));
+    const x=cx+Math.cos(ang)*d, y=cy+Math.sin(ang)*d, r=lerp(6,22,rng())*(1+0.3*k), col2=pal[i%pal.length];
+    const g2=fctx.createRadialGradient(x,y,0,x,y,r);
+    g2.addColorStop(0,'rgba(255,255,255,0.7)');g2.addColorStop(0.4,rgba(col2,0.7));g2.addColorStop(1,rgba(col2,0));
+    fctx.fillStyle=g2;fctx.beginPath();fctx.arc(x,y,r,0,6.2832);fctx.fill();
+  }
+  const white=endWhite(p);if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+// 태우기: 불타는 가장자리가 화면을 먹어들어가며 잉걸불이 피어오름
+function fxBurn(p,w,h,time){
+  const I=state.intensity,k=AUD.kick, pp=state.direction==='reverse'?1-p:p;
+  const front=pp*w*1.3 - w*0.15, rng=mulberry32(state.seed+31), segs=40;
+  fctx.beginPath();fctx.moveTo(0,0);fctx.lineTo(0,h);
+  for(let s=segs;s>=0;s--){const y=s/segs*h;
+    const edge=front+Math.sin(y/h*9+time*4)*40+(rng()-.5)*60; fctx.lineTo(edge,y);}
+  fctx.closePath();
+  const g=fctx.createLinearGradient(0,0,front+80,0);
+  g.addColorStop(0,rgba(pal[2],0.9));g.addColorStop(0.85,rgba(pal[1]||pal[0],0.85));g.addColorStop(1,'rgba(255,200,80,0.95)');
+  fctx.fillStyle=g;fctx.fill();
+  for(let s=0;s<=segs;s++){const y=s/segs*h;
+    const edge=front+Math.sin(y/h*9+time*4)*40, r=lerp(20,60,rng())*(1+0.5*k);
+    const gg=fctx.createRadialGradient(edge,y,0,edge,y,r);
+    gg.addColorStop(0,'rgba(255,240,180,0.95)');gg.addColorStop(0.4,'rgba(255,120,20,0.8)');gg.addColorStop(1,'rgba(255,40,0,0)');
+    fctx.fillStyle=gg;fctx.beginPath();fctx.arc(edge,y,r,0,6.2832);fctx.fill();}
+  for(let i=0;i<Math.round(60*I);i++){            // 솟아오르는 잉걸불
+    const life=(rng()+time*0.6*(0.4+rng()))%1, ex=front+(rng()-.5)*70, ey=h*(1-life)*0.9+h*0.05;
+    const r=lerp(1,4,rng())*(1-life*0.5);
+    fctx.fillStyle=`rgba(255,${(120+120*rng())|0},40,${Math.sin(life*Math.PI)*0.9})`;
+    fctx.beginPath();fctx.arc(ex,ey,r,0,6.2832);fctx.fill();}
+}
+// 찢기: 화면이 들쭉날쭉 찢어지며 밝은 틈이 벌어짐
+function fxTear(p,w,h,time){
+  const I=state.intensity,k=AUD.kick, cx=w/2, pp=state.direction==='reverse'?1-p:p;
+  const gap=easeIn(pp)*w*0.85*(1+0.1*k), rng=mulberry32(state.seed+41), segs=30;
+  fctx.beginPath();
+  for(let s=0;s<=segs;s++){const y=s/segs*h;
+    const x=cx-gap/2+Math.sin(y/h*14+1)*(10+20*Math.sin(time))+(rng()-.5)*30; s?fctx.lineTo(x,y):fctx.moveTo(x,y);}
+  for(let s=segs;s>=0;s--){const y=s/segs*h;
+    const x=cx+gap/2+Math.sin(y/h*14)*(10+20*Math.sin(time+1))+(rng()-.5)*30; fctx.lineTo(x,y);}
+  fctx.closePath();
+  const wg=fctx.createLinearGradient(cx-gap/2,0,cx+gap/2,0);
+  wg.addColorStop(0,rgba(pal[3]||pal[0],0));
+  wg.addColorStop(.5,`rgba(255,255,255,${clamp(gap/(w*0.5),0,1)})`);
+  wg.addColorStop(1,rgba(pal[3]||pal[0],0));
+  fctx.fillStyle=wg;fctx.fill();
+  // 찢긴 가장자리 발광선
+  fctx.lineWidth=3;
+  for(const sgn of [-1,1]){
+    fctx.beginPath();
+    for(let s=0;s<=segs;s++){const y=s/segs*h;
+      const x=cx+sgn*gap/2+Math.sin(y/h*14+(sgn>0?0:1))*(10+20*Math.sin(time+(sgn>0?1:0)))+(rng()-.5)*30;
+      s?fctx.lineTo(x,y):fctx.moveTo(x,y);}
+    fctx.strokeStyle=rgba(pal[1]||pal[0],0.6*pulse(pp));fctx.stroke();
+  }
+}
+// 타격감: 방향에서 꽂히는 충격 — 크랙·충격파·플래시·화면흔들림
+function fxHit(p,w,h,time){
+  const I=state.intensity,k=AUD.kick,cx=ox(w)+ozPar(),cy=oy(h), pp=state.direction==='reverse'?1-p:p;
+  const hit=smoothstep(0.2,0.4,pp), rng=mulberry32(state.seed+51);
+  const shake=pulse(smoothstep(0.25,0.6,pp))*40*I*(1+k);
+  fctx.save();fctx.translate((rng()-.5)*shake,(rng()-.5)*shake);
+  const flash=Math.max(0,1-Math.abs(pp-0.32)*5);
+  if(flash>0.01){fctx.fillStyle=`rgba(255,255,255,${flash})`;fctx.fillRect(-60,-60,w+120,h+120);}
+  for(let i=0;i<12;i++){            // 방사형 크랙
+    const ang=i/12*6.2832+rng()*0.3, len=hit*Math.hypot(w,h)*0.6*(0.6+rng());
+    fctx.beginPath();fctx.moveTo(cx,cy);
+    for(let s=1;s<=5;s++){const d=len*s/5;
+      fctx.lineTo(cx+Math.cos(ang)*d+(rng()-.5)*30, cy+Math.sin(ang)*d+(rng()-.5)*30);}
+    fctx.strokeStyle=rgba(pal[i%pal.length],hit*(1-pp*0.5));fctx.lineWidth=clamp((1-pp)*8,1,8);fctx.stroke();
+  }
+  const sw=smoothstep(0.3,1,pp), rad=sw*Math.hypot(w,h)*0.55;
+  const rg=fctx.createRadialGradient(cx,cy,rad*0.7,cx,cy,rad);
+  rg.addColorStop(0,'rgba(255,255,255,0)');rg.addColorStop(.7,rgba(pal[2],(1-sw)*0.9));rg.addColorStop(1,'rgba(255,255,255,0)');
+  fctx.fillStyle=rg;fctx.beginPath();fctx.arc(cx,cy,rad,0,6.2832);fctx.fill();
+  for(let i=0;i<Math.round(40*I);i++){
+    const ang=rng()*6.2832, d=easeOut(sw)*Math.hypot(w,h)*0.5*(0.4+rng());
+    fctx.fillStyle=rgba(pal[i%pal.length],(1-sw));
+    fctx.beginPath();fctx.arc(cx+Math.cos(ang)*d,cy+Math.sin(ang)*d,lerp(2,7,rng()),0,6.2832);fctx.fill();
+  }
+  fctx.restore();
+}
+// 소용돌이(whirlpool): 파티클이 중심으로 휘말려 빨려듦
+function fxWhirl(p,w,h,time){
+  const cx=ox(w)+ozPar(),cy=oy(h),I=state.intensity,k=AUD.kick, t=state.seamless?p*2*Math.PI:time, rng=mulberry32(state.seed+61);
+  for(let i=0;i<Math.round(220*I);i++){
+    const seed=rng(), life=((seed+t*0.2*(0.5+rng()))%1);
+    const rad=(1-life)*Math.hypot(w,h)*0.5, ang=seed*6.2832+(1-life)*7+t*(1.5+0.5*k);
+    const x=cx+Math.cos(ang)*rad+eyePar(life), y=cy+Math.sin(ang)*rad;
+    fctx.fillStyle=rgba(pal[i%pal.length],Math.sin(life*Math.PI)*0.85);
+    fctx.beginPath();fctx.arc(x,y,lerp(1,4,1-life)*(1+0.4*k),0,6.2832);fctx.fill();
+  }
+  for(let arm=0;arm<3;arm++){
+    fctx.beginPath();
+    for(let s=0;s<=40;s++){const tt=s/40, rad=tt*Math.hypot(w,h)*0.5, ang=arm/3*6.2832+tt*9-t*2;
+      const x=cx+Math.cos(ang)*rad,y=cy+Math.sin(ang)*rad; s?fctx.lineTo(x,y):fctx.moveTo(x,y);}
+    fctx.strokeStyle=rgba(pal[arm%pal.length],0.12*I);fctx.lineWidth=40;fctx.stroke();
+  }
+  const cr=Math.hypot(w,h)*(0.05+0.45*easeInCubic(p)), g=fctx.createRadialGradient(cx,cy,0,cx,cy,cr);
+  g.addColorStop(0,rgba(pal[2],0.7+0.3*k));g.addColorStop(.6,rgba(pal[2],0.2));g.addColorStop(1,rgba(pal[2],0));
+  fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  const white=endWhite(p);if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+// 반짝임(glitter): 별처럼 명멸하는 입자 + 십자 플레어
+function fxSparkle(p,w,h,time){
+  const I=state.intensity,k=AUD.kick, rng=mulberry32(state.seed+71);
+  const n=Math.round(120*I*(0.6+0.6*pulse(p)));
+  for(let i=0;i<n;i++){
+    const x=rng()*w,y=rng()*h, tw=Math.abs(Math.sin(time*lerp(2,8,rng())+i)), r=lerp(2,9,rng())*tw*(1+0.6*k);
+    if(r<0.5)continue;
+    const col=pal[i%pal.length], g=fctx.createRadialGradient(x,y,0,x,y,r*2);
+    g.addColorStop(0,'rgba(255,255,255,'+tw+')');g.addColorStop(.4,rgba(col,tw*0.8));g.addColorStop(1,rgba(col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(x,y,r*2,0,6.2832);fctx.fill();
+    if(tw>0.8){fctx.strokeStyle='rgba(255,255,255,'+(tw-0.8)*4+')';fctx.lineWidth=1.5;
+      fctx.beginPath();fctx.moveTo(x-r*3,y);fctx.lineTo(x+r*3,y);fctx.moveTo(x,y-r*3);fctx.lineTo(x,y+r*3);fctx.stroke();}
+  }
+  const veil=pulse(p)*0.5;if(veil>0.01){fctx.fillStyle=rgba(pal[3]||pal[0],veil);fctx.fillRect(0,0,w,h);}
+}
+// 샘솟음(fountain): 입자가 분수처럼 솟구쳐 중력으로 떨어짐 (역방향=빨려듦)
+function fxFountain(p,w,h,time){
+  const I=state.intensity,k=AUD.kick, rng=mulberry32(state.seed+81), dir=state.direction==='reverse';
+  const cx=ox(w)+ozPar(), baseY=oy(h);
+  for(let i=0;i<Math.round(200*I);i++){
+    const life=((rng()+time*0.4*(0.5+rng()))%1), ang=-Math.PI/2+(rng()-.5)*1.0, sp=lerp(0.3,1,rng()), t=life;
+    const vx=Math.cos(ang)*sp*w*0.5, vy=Math.sin(ang)*sp*h*1.4;
+    let x=cx+vx*t+(rng()-.5)*40, y=baseY+vy*t+(h*1.6)*t*t;
+    if(dir) y=h-y;
+    const col=pal[i%pal.length], al=Math.sin(life*Math.PI)*0.9, r=lerp(2,6,rng())*(1+0.4*k);
+    const g=fctx.createRadialGradient(x,y,0,x,y,r*2);
+    g.addColorStop(0,'rgba(255,255,255,'+al+')');g.addColorStop(.5,rgba(col,al*0.8));g.addColorStop(1,rgba(col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(x,y,r*2,0,6.2832);fctx.fill();
+  }
+}
+
+/* ============================================================ 재질 / 신체 / 자연 (포인트 기반) */
+function drawBolt(x1,y1,x2,y2,segs,rng,col,a){
+  const pts=[[x1,y1]];
+  for(let i=1;i<segs;i++){const t=i/segs;
+    pts.push([lerp(x1,x2,t)+(rng()-.5)*60, lerp(y1,y2,t)+(rng()-.5)*60]);}
+  pts.push([x2,y2]);
+  fctx.lineCap='round';
+  fctx.strokeStyle=rgba(col,0.4*a);fctx.lineWidth=10;
+  fctx.beginPath();pts.forEach((q,i)=>i?fctx.lineTo(q[0],q[1]):fctx.moveTo(q[0],q[1]));fctx.stroke();
+  fctx.strokeStyle=`rgba(255,255,255,${a})`;fctx.lineWidth=2.5;
+  fctx.beginPath();pts.forEach((q,i)=>i?fctx.lineTo(q[0],q[1]):fctx.moveTo(q[0],q[1]));fctx.stroke();
+  for(let i=2;i<pts.length-1;i++) if(rng()<0.3){
+    fctx.strokeStyle=`rgba(255,255,255,${a*0.6})`;fctx.lineWidth=1.5;
+    fctx.beginPath();fctx.moveTo(pts[i][0],pts[i][1]);
+    fctx.lineTo(pts[i][0]+(rng()-.5)*200,pts[i][1]+(rng()-.5)*200);fctx.stroke();}
+}
+// 번개: 지정한 포인트에서 갈래쳐 뻗는 전기 방전
+function fxLightning(p,w,h,time){
+  const I=state.intensity,k=AUD.kick, cx=ox(w)+ozPar(), cy=oy(h);
+  const strike=Math.max(k,(Math.sin(time*9)>0.6?1:0))*(0.4+0.6*pulse(p));
+  const rng=mulberry32(state.seed+Math.floor(time*12)+91), bolts=1+(rng()<0.4?1:0);
+  for(let b=0;b<bolts;b++){const ang=rng()*6.2832, L=Math.hypot(w,h);
+    drawBolt(cx,cy,cx+Math.cos(ang)*L,cy+Math.sin(ang)*L,10,rng,pal[b%pal.length],strike);}
+  const g=fctx.createRadialGradient(cx,cy,0,cx,cy,h*0.4*strike+1);
+  g.addColorStop(0,`rgba(220,235,255,${0.6*strike})`);g.addColorStop(1,'rgba(150,180,255,0)');
+  fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  if(strike>0.9){fctx.fillStyle=`rgba(255,255,255,${(strike-0.9)*3})`;fctx.fillRect(0,0,w,h);}
+}
+// 신경망(뉴런): 노드+시냅스 선 위로 빛 펄스가 전달
+function fxNeuron(p,w,h,time){
+  const I=state.intensity,k=AUD.kick, rng=mulberry32(state.seed+101), N=Math.round(26*I), nodes=[];
+  for(let i=0;i<N;i++) nodes.push([(0.08+0.84*rng())*w+Math.sin(time*0.5+i)*20,(0.08+0.84*rng())*h+Math.cos(time*0.4+i)*20]);
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){
+    const d=Math.hypot(nodes[i][0]-nodes[j][0],nodes[i][1]-nodes[j][1]);
+    if(d<w*0.18){const col=pal[i%pal.length];
+      fctx.strokeStyle=rgba(col,(1-d/(w*0.18))*0.4);fctx.lineWidth=1.2;
+      fctx.beginPath();fctx.moveTo(nodes[i][0],nodes[i][1]);fctx.lineTo(nodes[j][0],nodes[j][1]);fctx.stroke();
+      const t=(time*0.6+i*0.1+j*0.07)%1, px=lerp(nodes[i][0],nodes[j][0],t), py=lerp(nodes[i][1],nodes[j][1],t);
+      const g=fctx.createRadialGradient(px,py,0,px,py,6+6*k);
+      g.addColorStop(0,'rgba(255,255,255,0.9)');g.addColorStop(1,rgba(col,0));
+      fctx.fillStyle=g;fctx.beginPath();fctx.arc(px,py,6+6*k,0,6.2832);fctx.fill();}
+  }
+  nodes.forEach((nn,i)=>{const r=(5+4*Math.sin(time*2+i))*(1+0.5*k), col=pal[i%pal.length];
+    const g=fctx.createRadialGradient(nn[0],nn[1],0,nn[0],nn[1],r*2.5);
+    g.addColorStop(0,'rgba(255,255,255,0.95)');g.addColorStop(.4,rgba(col,0.8));g.addColorStop(1,rgba(col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(nn[0],nn[1],r*2.5,0,6.2832);fctx.fill();});
+}
+// 우주: 성운 + 포인트에서 쏟아지는 워프 별
+function fxCosmos(p,w,h,time){
+  const cx=ox(w)+ozPar(), cy=oy(h),I=state.intensity,k=AUD.kick, rng=mulberry32(state.seed+111);
+  for(let i=0;i<6;i++){const x=rng()*w,y=rng()*h,r=lerp(0.2,0.5,rng())*Math.min(w,h),hue=(time*20+i*60)%360;
+    const g=fctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,`hsla(${hue},80%,55%,${0.10*I})`);g.addColorStop(1,`hsla(${hue},80%,55%,0)`);
+    fctx.fillStyle=g;fctx.fillRect(0,0,w,h);}
+  const speed=0.2+0.8*easeInCubic(p)+0.5*k, sr=mulberry32(state.seed+112);
+  for(let i=0;i<Math.round(260*I);i++){
+    const ang=sr()*6.2832, z=((sr()+time*speed*0.15)%1), rad=z*z*Math.hypot(w,h)*0.7;
+    const x=cx+Math.cos(ang)*rad, y=cy+Math.sin(ang)*rad;
+    fctx.strokeStyle=`rgba(255,255,255,${z*0.8})`;fctx.lineWidth=z*1.8;
+    fctx.beginPath();fctx.moveTo(cx+Math.cos(ang)*rad*0.92,cy+Math.sin(ang)*rad*0.92);fctx.lineTo(x,y);fctx.stroke();}
+  const white=endWhite(p);if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+// 홍채(눈): 방사 섬유 + 동공이 열리며 빨려듦
+function fxIris(p,w,h,time){
+  const cx=ox(w)+ozPar(), cy=oy(h),I=state.intensity,k=AUD.kick, R=Math.min(w,h)*0.5;
+  const pupil=lerp(0.05,1.1,easeInOut(state.direction==='reverse'?1-p:p));
+  for(let i=0;i<160;i++){const ang=i/160*6.2832;
+    const r0=R*pupil*0.55, r1=R*(0.95+0.05*Math.sin(i*5+time)), col=pal[i%pal.length];
+    fctx.strokeStyle=rgba(col,0.25+0.25*Math.sin(i*3+time*2));fctx.lineWidth=1.5;
+    fctx.beginPath();fctx.moveTo(cx+Math.cos(ang)*r0,cy+Math.sin(ang)*r0);
+    fctx.lineTo(cx+Math.cos(ang)*r1,cy+Math.sin(ang)*r1);fctx.stroke();}
+  fctx.strokeStyle=rgba(mulRgb(pal[0],0.4),0.6);fctx.lineWidth=R*0.04;
+  fctx.beginPath();fctx.arc(cx,cy,R*0.95,0,6.2832);fctx.stroke();
+  const pr=R*pupil*0.55, cover=clamp((pupil-0.85)/0.25,0,1);
+  if(cover>0.01){fctx.fillStyle=`rgba(255,255,255,${cover})`;fctx.fillRect(0,0,w,h);}
+  else { fctx.fillStyle=rgba(mulRgb(pal[2]||pal[0],0.3),0.9);
+    fctx.beginPath();fctx.arc(cx,cy,pr,0,6.2832);fctx.fill();
+    fctx.fillStyle='rgba(255,255,255,0.5)';fctx.beginPath();fctx.arc(cx-pr*0.3,cy-pr*0.3,pr*0.18,0,6.2832);fctx.fill();}
+}
+// 구름: 볼류메트릭 솜 구름 (소프트 그라디언트)
+function fxClouds(p,w,h,time){
+  const I=state.intensity, rng=mulberry32(state.seed+121);
+  for(let i=0;i<Math.round(40*I);i++){
+    const sx=rng(),sy=rng(),sp=rng();
+    const x=((sx+time*0.02*(0.5+sp))%1.2-0.1)*w, y=(0.1+0.8*sy)*h+Math.sin(time*0.3+i)*10;
+    const r=lerp(0.12,0.3,sp)*Math.min(w,h), sh=lerp(0.7,1,sp), col={r:255*sh,g:255*sh,b:255*sh};
+    const g=fctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,rgba(col,0.18*I));g.addColorStop(.6,rgba(col,0.06*I));g.addColorStop(1,rgba(col,0));
+    fctx.fillStyle=g;fctx.beginPath();fctx.arc(x,y,r,0,6.2832);fctx.fill();}
+  const tg=fctx.createLinearGradient(0,0,0,h);
+  tg.addColorStop(0,rgba(pal[0],0.05));tg.addColorStop(1,rgba(pal[2]||pal[0],0.05));
+  fctx.fillStyle=tg;fctx.fillRect(0,0,w,h);
+  const veil=pulse(p)*0.5;if(veil>0.01){fctx.fillStyle=`rgba(255,255,255,${veil})`;fctx.fillRect(0,0,w,h);}
+}
+// 혈관/내장: 포인트에서 뻗는 박동하는 혈관망 (fire/sunset 팔레트 추천)
+function fxVessel(p,w,h,time){
+  const cx=ox(w)+ozPar(), cy=oy(h),I=state.intensity,k=AUD.kick, rng=mulberry32(state.seed+131);
+  const beats=0.5+0.5*Math.sin(time*3)+k, branches=Math.round(10*I);
+  fctx.lineCap='round';
+  for(let b=0;b<branches;b++){
+    let x=cx,y=cy,ang=rng()*6.2832; fctx.beginPath();fctx.moveTo(x,y);
+    for(let s=0;s<14;s++){ang+=(rng()-.5)*0.8;const len=lerp(20,60,rng());x+=Math.cos(ang)*len;y+=Math.sin(ang)*len;fctx.lineTo(x,y);}
+    fctx.strokeStyle=rgba(pal[b%pal.length],0.5);fctx.lineWidth=(2+6*beats)*(1-b/branches*0.5);fctx.stroke();}
+  const r=Math.min(w,h)*(0.2+0.25*beats), col=pal[0], g=fctx.createRadialGradient(cx,cy,0,cx,cy,r);
+  g.addColorStop(0,rgba(col,0.5*beats));g.addColorStop(.5,rgba(mulRgb(col,0.7),0.2));g.addColorStop(1,rgba(col,0));
+  fctx.fillStyle=g;fctx.fillRect(0,0,w,h);
+  const white=endWhite(p);if(white>0.01){fctx.fillStyle=`rgba(255,255,255,${white})`;fctx.fillRect(0,0,w,h);}
+}
+
+const DRAW={impact:fxImpact,drift:fxDrift,tunnel:fxTunnel,color:fxColor,glitch:fxGlitch,prism:fxPrism,
+  pulse:fxPulseCore,focus:fxFocusRush,heart:fxHeart,poly:fxPoly,dream:fxDream,chroma:fxChroma,
+  aurora:fxAurora,liquid:fxLiquid,jelly:fxJelly,burn:fxBurn,tear:fxTear,hit:fxHit,
+  whirl:fxWhirl,sparkle:fxSparkle,fountain:fxFountain,
+  lightning:fxLightning,neuron:fxNeuron,cosmos:fxCosmos,iris:fxIris,clouds:fxClouds,vessel:fxVessel};
+
+/* ============================================================ POST FX (만화경 / VR) */
+function kaleidoInto(d,src,seg){
+  const w=src.width,h=src.height,cx=w/2,cy=h/2,ang=2*Math.PI/seg,R=Math.hypot(w,h);
+  for(let i=0;i<seg;i++){
+    d.save();
+    d.translate(cx,cy);d.rotate(i*ang);
+    if(i%2)d.scale(1,-1);
+    d.beginPath();d.moveTo(0,0);d.arc(0,0,R,-ang/2,ang/2);d.closePath();d.clip();
+    d.translate(-cx,-cy);
+    d.drawImage(src,0,0);
+    d.restore();
+  }
+}
+/* 입체(스테레오) 시차: 가까운(nearness=1) 요소일수록 좌우 눈 차이가 큼 → 진짜 깊이감 */
+let EYE=0, exporting=false, FLASH=1;   // FLASH = Energy 매크로가 정한 플래시/컷 세기(광과민 안전 상한 포함)
+function eyePar(nearness){ return EYE*(state.vrSep*nearness - state.converge); }
+function sbsMode(){ return state.vr && !state.anaglyph; }   // 좌/우 분할(SBS) 여부
+function endWhite(p){ return (state.seamless?0:smoothstep(0.85,1,p))*FLASH; }   // 심리스 루프면 컷 화이트아웃 제거
+
+/* 타격/시작점(origin). move 모드면 p 따라 A→B 이동. z=깊이(VR 시차). */
+let ORG={x:0.5,y:0.5,z:0};
+function computeOrigin(p){
+  if(state.move){ const e=easeInOut(clamp(p,0,1));
+    ORG.x=lerp(state.origin.x,state.target.x,e);
+    ORG.y=lerp(state.origin.y,state.target.y,e);
+    ORG.z=lerp(state.origin.z,state.target.z,e);
+  } else { ORG.x=state.origin.x; ORG.y=state.origin.y; ORG.z=state.origin.z; }
+}
+function ox(w){ return ORG.x*w; }
+function oy(h){ return ORG.y*h; }
+function ozPar(){ return EYE*(state.vrSep*(1+ORG.z*2) - state.converge); }   // 원점 깊이 시차 + 수렴면
+
+function renderFXOnce(p,w,h,time){
+  computeOrigin(p);
+  fctx.setTransform(1,0,0,1,0,0);
+  fctx.clearRect(0,0,w,h);
+  fctx.globalCompositeOperation=EFFECTS[state.effect].mode;
+  const eg=state.energy/100;                                              // ⚡ Energy 매크로(자극 강도)
+  FLASH=lerp(0.4,1.2,eg);                                                 // 저Energy=플래시/컷 억제(광과민 안전), 고Energy=강한 컷
+  fctx.shadowBlur=state.soft*38 + (1-eg)*20;                              // 글로우/볼류메트릭 부드러움 (저Energy=더 몽환적 블룸)
+  fctx.shadowColor='rgba(255,255,255,'+(0.18+0.5*state.soft)+')';
+  let oscX=0,oscY=0;
+  if(state.osc!=='off' && state.oscAmt>0){
+    const a=time*state.oscSpeed*2, amt=state.oscAmt;
+    if(state.osc==='h') oscX=Math.sin(a)*w*0.14*amt;
+    else if(state.osc==='v') oscY=Math.sin(a)*h*0.14*amt;
+    else if(state.osc==='orbit'){oscX=Math.cos(a)*w*0.10*amt;oscY=Math.sin(a)*h*0.10*amt;}
+  }
+  fctx.translate(oscX,oscY);
+  if(state.reactive && !exporting && AUD.kick>0.001){const s=1+0.07*AUD.kick*lerp(0.35,1.7,eg);
+    fctx.translate(w/2,h/2);fctx.scale(s,s);fctx.translate(-w/2,-h/2);}
+  DRAW[state.effect](clamp(p,0,1),w,h,time);
+  fctx.setTransform(1,0,0,1,0,0);
+  fctx.shadowBlur=0;
+  if(state.reactive && !exporting) drawBeatAccents(w,h);
+  fctx.globalCompositeOperation='source-over';
+}
+function applyKaleido(w,h){
+  if(state.kaleido<=1) return;
+  rxctx.setTransform(1,0,0,1,0,0);rxctx.clearRect(0,0,w,h);rxctx.drawImage(fx,0,0);
+  fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,w,h);fctx.globalCompositeOperation='source-over';
+  kaleidoInto(fctx,rx,state.kaleido);
+}
+/* 크로스페이드 진행도: xfrom 이 있으면 0→1, 끝나면 null 로 리셋 */
+let xfrom=null, xStart=0;
+function xfadeProgress(){
+  if(!xfrom) return 1;
+  const t=(performance.now()-xStart)/(Math.max(0.05,state.xfadeDur)*1000);
+  if(t>=1){ xfrom=null; return 1; }
+  return t;
+}
+/* 효과를 fx 로 렌더. 크로스페이드 중이면 from*(1-t)+to*t 가산 블렌드(빛 효과에 자연스러움) */
+function renderEffect(p,w,h,time){
+  const t=xfadeProgress();
+  if(xfrom && t<1){
+    const cur=state.effect;
+    state.effect=xfrom; renderFXOnce(p,w,h,time);                 // from
+    bxctx.setTransform(1,0,0,1,0,0);bxctx.clearRect(0,0,w,h);bxctx.drawImage(fx,0,0);
+    state.effect=cur;   renderFXOnce(p,w,h,time);                 // to  (fx 에 남음)
+    rxctx.setTransform(1,0,0,1,0,0);rxctx.clearRect(0,0,w,h);rxctx.drawImage(fx,0,0);
+    fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,w,h);
+    fctx.globalCompositeOperation='source-over';fctx.globalAlpha=1-t;fctx.drawImage(bx,0,0);
+    fctx.globalCompositeOperation='lighter';     fctx.globalAlpha=t;  fctx.drawImage(rx,0,0);
+    fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
+  } else {
+    renderFXOnce(p,w,h,time);
+  }
+}
+/* 한 버퍼의 RGB를 tint색 채널만 남기고 원래 알파는 보존(애너글리프용) */
+function tintChannel(bctx,tint,w,h){
+  bctx.globalCompositeOperation='multiply';bctx.fillStyle=tint;bctx.fillRect(0,0,w,h);  // RGB 마스킹
+  bctx.globalCompositeOperation='destination-in';bctx.drawImage(fx,0,0);                // 알파 복원
+  bctx.globalCompositeOperation='source-over';
+}
+function composeFX(p,w,h,time){
+  if(state.vr && state.anaglyph){
+    // 적/청 애너글리프: 좌=빨강, 우=시안 채널로 합성 → 헤드셋 없이 깊이 확인
+    EYE=-1; renderEffect(p,w,h,time); applyKaleido(w,h);
+    kxctx.setTransform(1,0,0,1,0,0);kxctx.clearRect(0,0,w,h);kxctx.globalAlpha=1;kxctx.globalCompositeOperation='source-over';kxctx.drawImage(fx,0,0);
+    tintChannel(kxctx,'#ff0000',w,h);
+    EYE=1; renderEffect(p,w,h,time); applyKaleido(w,h);
+    bxctx.setTransform(1,0,0,1,0,0);bxctx.clearRect(0,0,w,h);bxctx.globalAlpha=1;bxctx.globalCompositeOperation='source-over';bxctx.drawImage(fx,0,0);
+    tintChannel(bxctx,'#00ffff',w,h);
+    EYE=0;
+    fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,w,h);fctx.globalCompositeOperation='source-over';fctx.drawImage(kx,0,0);
+    fctx.globalCompositeOperation='lighter';fctx.drawImage(bx,0,0);fctx.globalCompositeOperation='source-over';
+  } else if(state.vr){
+    EYE=-1; renderEffect(p,w,h,time); applyKaleido(w,h);
+    kxctx.setTransform(1,0,0,1,0,0);kxctx.clearRect(0,0,w,h);
+    kxctx.save();kxctx.beginPath();kxctx.rect(0,0,w/2,h);kxctx.clip();
+    kxctx.drawImage(fx,0,0,w,h, 0,0,w/2,h);kxctx.restore();      // 왼눈 → 좌측 절반
+    EYE=1; renderEffect(p,w,h,time); applyKaleido(w,h);
+    kxctx.save();kxctx.beginPath();kxctx.rect(w/2,0,w/2,h);kxctx.clip();
+    kxctx.drawImage(fx,0,0,w,h, w/2,0,w/2,h);kxctx.restore();    // 오른눈 → 우측 절반
+    EYE=0;
+    fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,w,h);fctx.drawImage(kx,0,0);
+  } else {
+    EYE=0; renderEffect(p,w,h,time); applyKaleido(w,h);
+  }
+  if(state.fisheye>0.001) applyFisheye(w,h);   // 피쉬아이(배럴 디스토션) 후처리
+}
+/* 배럴/피쉬아이 워프: 영역[ox,oy,rw,rh]을 메시(G×G)로 중심 볼록 왜곡 */
+function barrelWarp(srcCanvas,dctx,ox,oy,rw,rh,k){
+  const G=18, cw=rw/G, ch=rh/G, cx=ox+rw/2, cy=oy+rh/2, R=Math.hypot(rw,rh)/2;
+  const sv=[];
+  for(let i=0;i<=G;i++){ sv[i]=[];
+    for(let j=0;j<=G;j++){
+      const dx=ox+i*cw, dy=oy+j*ch, vx=dx-cx, vy=dy-cy, n=Math.min(Math.hypot(vx,vy)/R,1);
+      const f=(1+k*n*n)/(1+k);                          // 소스 반경 비율(중심 확대=피쉬아이 볼록)
+      sv[i][j]={x:cx+vx*f, y:cy+vy*f};
+    }
+  }
+  for(let i=0;i<G;i++) for(let j=0;j<G;j++){
+    const s0=sv[i][j], s1=sv[i+1][j+1], sw=s1.x-s0.x, sh=s1.y-s0.y;
+    if(sw<=0||sh<=0) continue;
+    dctx.drawImage(srcCanvas, s0.x,s0.y,sw,sh, ox+i*cw,oy+j*ch, cw+1,ch+1);
+  }
+}
+function applyFisheye(w,h){
+  bxctx.setTransform(1,0,0,1,0,0);bxctx.clearRect(0,0,w,h);bxctx.globalAlpha=1;bxctx.globalCompositeOperation='source-over';bxctx.drawImage(fx,0,0);
+  fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,w,h);fctx.globalCompositeOperation='source-over';
+  const k=state.fisheye*2.4;
+  if(sbsMode()){ barrelWarp(bx,fctx,0,0,w/2,h,k); barrelWarp(bx,fctx,w/2,0,w/2,h,k); }
+  else barrelWarp(bx,fctx,0,0,w,h,k);
+}
+
+/* ============================================================ render loop */
+let startT=0, lastP=0;
+let viewBG=null;
+function buildViewBG(){                                  // 퍼폼 모드용 어두운 뷰 배경(초록 대신 감상용)
+  const w=main.width,h=main.height;
+  viewBG=mctx.createRadialGradient(w/2,h*0.44,h*0.06, w/2,h*0.5, Math.max(w,h)*0.72);
+  viewBG.addColorStop(0,'#0c0e16'); viewBG.addColorStop(1,'#020308');
+}
+function setCanvasSize(){
+  if(state.aspect==='land'){main.width=fx.width=rx.width=kx.width=bx.width=1920;main.height=fx.height=rx.height=kx.height=bx.height=1080;}
+  else{main.width=fx.width=rx.width=kx.width=bx.width=1080;main.height=fx.height=rx.height=kx.height=bx.height=1920;}
+  buildViewBG();
+  document.getElementById('badge').textContent =
+    state.aspect==='land'?'16:9 · 1920×1080':'9:16 · 1080×1920';
+}
+function resetTimeline(){startT=performance.now();rebuild();}
+
+function loop(){
+  requestAnimationFrame(loop);
+  const w=W(),h=H();
+  const time=performance.now()/1000;
+  let p=lastP;
+  if(state.playing){
+    p=(performance.now()-startT)/(state.duration*1000);
+    if(p>=1){
+      if(state.recording && !state.reactive){ finishRecording(); p=1; }
+      else if(state.loop || state.recording){ startT=performance.now(); if(!state.reactive)rebuild(); p=0; }
+      else { state.playing=false; p=1; updatePlayBtn(); }
+    }
+    lastP=p;
+  }
+  // FX layer (transparent) — 진동/비트펀치/만화경/VR 스테레오 전부 composeFX 안에서 처리
+  updateAudio(time);
+  composeFX(p,w,h,time);
+  // main = bg + fx
+  mctx.setTransform(1,0,0,1,0,0);
+  mctx.globalCompositeOperation='source-over';
+  if(state.perform && !state.recording){ mctx.fillStyle=viewBG||'#04050a'; mctx.fillRect(0,0,w,h); }   // 감상용 어두운 배경
+  else if(state.out==='alpha'){ mctx.clearRect(0,0,w,h); }
+  else { mctx.fillStyle=state.bg; mctx.fillRect(0,0,w,h); }
+  mctx.drawImage(fx,0,0);
+  // timeline + rec time
+  document.getElementById('tlbar').style.width=(clamp(p,0,1)*100)+'%';
+  if(state.recording){
+    document.getElementById('recTime').textContent='REC '+((performance.now()-startT)/1000).toFixed(1)+'s';
+  }
+  drawVis();
+}
+
+/* ============================================================ recording */
+let recorder=null, chunks=[], recMime='video/webm';
+function pickMime(alpha){
+  // 알파(투명)는 vp9 webm만 가능. 불투명은 mp4(H.264) 우선 → Final Cut / Premiere가 바로 읽음.
+  const opts = alpha
+    ? ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+    : ['video/mp4;codecs=h264','video/mp4;codecs=avc1.42E01E','video/mp4',
+       'video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  for(const m of opts) if(window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+  return 'video/webm';
+}
+function startRecording(){
+  if(state.recording) return;
+  const alpha = state.out==='alpha';
+  const srcCanvas = alpha ? fx : main;
+  const stream = srcCanvas.captureStream(60);
+  recMime = pickMime(alpha);
+  try{
+    recorder=new MediaRecorder(stream,{mimeType:recMime,videoBitsPerSecond:40_000_000});
+  }catch(e){ recorder=new MediaRecorder(stream); recMime=recorder.mimeType||'video/webm'; }
+  chunks=[];
+  recorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  recorder.onstop=()=>{
+    const type=(recorder.mimeType||recMime).split(';')[0];
+    const ext=type.indexOf('mp4')>=0?'mp4':'webm';
+    const blob=new Blob(chunks,{type});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+    a.href=url;
+    a.download=`${state.effect}_${state.aspect}_${alpha?'alpha':'green'}_${ts}.${ext}`;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  };
+  // play one clean cycle from 0, no loop
+  state.recording=true; state.loop=false; state.playing=true;
+  resetTimeline();
+  recorder.start();
+  document.getElementById('recBtn').classList.add('recording');
+  document.getElementById('recBtn').textContent='■ 정지';
+  document.getElementById('recDot').classList.add('on');
+}
+function finishRecording(){
+  if(!state.recording) return;
+  state.recording=false; state.playing=false;
+  try{ recorder.stop(); }catch(e){}
+  document.getElementById('recBtn').classList.remove('recording');
+  document.getElementById('recBtn').textContent='● 녹화';
+  document.getElementById('recDot').classList.remove('on');
+  updatePlayBtn();
+}
+
+/* ============================================================ PNG 시퀀스(알파) 내보내기
+   webm 알파는 FCP가 못 읽음 → PNG 시퀀스는 FCP/Premiere/After Effects/다빈치 어디서나 임포트.
+   결정론적으로 한 사이클을 렌더 → store-only ZIP 으로 묶어 다운로드. */
+function crc32(buf){
+  let t=crc32.t;
+  if(!t){t=crc32.t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;
+    for(let kk=0;kk<8;kk++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}}
+  let crc=0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++)crc=(crc>>>8)^t[(crc^buf[i])&0xFF];
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function zipStore(files){
+  const enc=new TextEncoder(), chunks=[], central=[]; let offset=0;
+  const u16=n=>[n&255,(n>>8)&255], u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];
+  files.forEach(f=>{
+    const name=enc.encode(f.name), crc=crc32(f.data), sz=f.data.length;
+    const lh=new Uint8Array([].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),
+      u32(crc),u32(sz),u32(sz),u16(name.length),u16(0)));
+    chunks.push(lh,name,f.data);
+    central.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),
+      u32(crc),u32(sz),u32(sz),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset))),name);
+    offset+=lh.length+name.length+sz;
+  });
+  const cStart=offset; let cSize=0;
+  central.forEach(c=>{chunks.push(c);cSize+=c.length;});
+  chunks.push(new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),
+    u16(files.length),u16(files.length),u32(cSize),u32(cStart),u16(0))));
+  return new Blob(chunks,{type:'application/zip'});
+}
+let exportFps=30;
+async function exportPNGSeq(){
+  if(exporting) return;
+  exporting=true;
+  const btn=document.getElementById('seqBtn'), wasPlaying=state.playing, wasReact=state.reactive;
+  state.playing=false; state.reactive=false; AUD.kick=0;
+  const w=W(),h=H(), N=Math.max(1,Math.round(state.duration*exportFps)), files=[];
+  for(let i=0;i<N;i++){
+    composeFX(i/N, w, h, (i/N)*state.duration);          // fx = 투명 알파 프레임
+    const blob=await new Promise(r=>fx.toBlob(r,'image/png'));
+    files.push({name:`${state.effect}_${String(i).padStart(4,'0')}.png`,
+      data:new Uint8Array(await blob.arrayBuffer())});
+    btn.textContent=`렌더링 ${i+1}/${N} …`;
+    await new Promise(r=>setTimeout(r,0));
+  }
+  btn.textContent='ZIP 압축 중 …';
+  const zip=zipStore(files), url=URL.createObjectURL(zip), a=document.createElement('a');
+  a.href=url; a.download=`${state.effect}_${state.aspect}_PNGseq_${exportFps}fps_alpha.zip`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),6000);
+  btn.textContent='🎞 PNG 시퀀스(알파) 내보내기';
+  exporting=false; state.reactive=wasReact; state.playing=wasPlaying; if(wasPlaying)resetTimeline();
+}
+
+/* ============================================================ UI wiring */
+function buildEffects(){
+  const grid=document.getElementById('effGrid');
+  grid.innerHTML='';
+  const tierMap={}; EFFECT_TIERS.forEach(t=>tierMap[t.at]=t.label);
+  EFFECT_ORDER.forEach((k,i)=>{
+    if(tierMap[k]){ const d=document.createElement('div'); d.className='tier-div'; d.textContent=tierMap[k]; grid.appendChild(d); }
+    const e=EFFECTS[k];
+    const b=document.createElement('button');
+    b.className='opt'+(state.effect===k?' on':'');
+    b.dataset.k=k;
+    b.innerHTML=`${i+1}. ${e.label}<small>${e.desc}</small>`;
+    b.onclick=()=>switchEffect(k);
+    grid.appendChild(b);
+  });
+}
+/* 효과 전환 중앙 처리(크로스페이드 포함). 그리드/HUD 갱신 */
+function switchEffect(k){
+  if(!EFFECTS[k] || k===state.effect) return;
+  const prev=state.effect;
+  state.effect=k;
+  if(state.crossfade){ xfrom=prev; xStart=performance.now(); } else { xfrom=null; }
+  updateDesc(k); logStep('효과',EFFECTS[k].label);
+  const grid=document.getElementById('effGrid');
+  [...grid.children].forEach(c=>c.classList.toggle('on',c.dataset && c.dataset.k===k));
+  updatePerformHUD();
+  resetTimeline(); if(!state.playing){state.playing=true;updatePlayBtn();}
+  pokeHUD();
+}
+/* 에너지 곡선 순서대로 효과 넘기기(VJ) */
+function stepEffect(dir){
+  const i=EFFECT_ORDER.indexOf(state.effect);
+  const n=EFFECT_ORDER[(i+dir+EFFECT_ORDER.length)%EFFECT_ORDER.length];
+  switchEffect(n);
+}
+/* 현재 효과가 속한 단계 라벨 */
+function tierOf(key){
+  const idx=EFFECT_ORDER.indexOf(key); let label='';
+  for(const t of EFFECT_TIERS){ if(EFFECT_ORDER.indexOf(t.at)<=idx) label=t.label; }
+  return label;
+}
+/* Energy 중앙 처리: state + 패널/HUD 슬라이더·표시 동기화 */
+function setEnergy(v,from){
+  state.energy=clamp(parseInt(v)||0,0,100);
+  const en=document.getElementById('energy'), ev=document.getElementById('energyV');
+  const pe=document.getElementById('phEnergy'), pv=document.getElementById('phEnergyV');
+  if(from!=='panel'){ en.value=state.energy; } ev.textContent=state.energy;
+  if(from!=='hud'){ pe.value=state.energy; } pv.textContent=state.energy;
+}
+function updateDesc(k){
+  const e=EFFECTS[k];
+  document.getElementById('effName').textContent=e.label;
+  document.getElementById('descName').textContent=e.label;
+  document.getElementById('descText').textContent=e.desc;
+}
+function buildPalettes(){
+  const row=document.getElementById('palRow');
+  row.innerHTML='';
+  Object.entries(PALETTES).forEach(([k,v])=>{
+    const sw=document.createElement('div');
+    sw.className='swatch'+(state.palette===k?' on':'');
+    sw.dataset.k=k;
+    sw.innerHTML=v.c.map(c=>`<span style="background:${c}"></span>`).join('')+`<em>${v.name}</em>`;
+    sw.onclick=()=>{ state.palette=k; logStep('팔레트',v.name);
+      [...row.children].forEach(c=>c.classList.toggle('on',c.dataset.k===k));
+      applyPalette(); };
+    row.appendChild(sw);
+  });
+}
+function updatePlayBtn(){
+  document.getElementById('playBtn').textContent = state.playing?'⏸ 정지':'▶ 미리보기';
+}
+
+document.getElementById('aspectTg').onclick=e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  state.aspect=b.dataset.a;
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  setCanvasSize(); resetTimeline(); setTimeout(positionHandles,30);
+};
+document.getElementById('dirTg').onclick=e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  state.direction=b.dataset.d;
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  resetTimeline();
+};
+document.getElementById('outTg').onclick=e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  state.out=b.dataset.o;
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+};
+document.getElementById('bgRow').onclick=e=>{
+  const b=e.target.closest('.bgc'); if(!b)return;
+  state.bg=b.dataset.bg;
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  main.style.background=state.bg;
+};
+document.getElementById('dur').oninput=e=>{
+  state.duration=parseFloat(e.target.value);
+  document.getElementById('durV').textContent=state.duration.toFixed(1)+'s';
+};
+document.getElementById('int').oninput=e=>{
+  state.intensity=parseInt(e.target.value)/100;
+  document.getElementById('intV').textContent=e.target.value+'%';
+  rebuild();
+};
+document.getElementById('energy').oninput=e=>{ setEnergy(e.target.value,'panel'); };
+
+/* ---- 퍼폼(감상) 모드 + 전환(크로스페이드) ---- */
+const appEl=document.querySelector('.app'), performHUD=document.getElementById('performHUD');
+let hudTimer=null;
+function updatePerformHUD(){
+  document.getElementById('phEff').textContent=EFFECTS[state.effect].label;
+  document.getElementById('phTier').textContent=tierOf(state.effect);
+}
+function pokeHUD(){                                  // 조작 시 HUD 잠깐 표시 후 자동 흐려짐
+  performHUD.classList.remove('idle');
+  clearTimeout(hudTimer); hudTimer=setTimeout(()=>{ if(state.perform) performHUD.classList.add('idle'); },2600);
+}
+function setPerform(on){
+  state.perform=on;
+  appEl.classList.toggle('perform',on);
+  document.getElementById('performBtn').textContent=on?'■ 퍼폼 종료':'🖥 퍼폼(감상) 모드 시작';
+  if(on){ updatePerformHUD(); pokeHUD(); try{appEl.requestFullscreen&&appEl.requestFullscreen();}catch(_){} }
+  else { performHUD.classList.remove('idle'); try{document.fullscreenElement&&document.exitFullscreen();}catch(_){} }
+  setTimeout(positionHandles,40);
+}
+document.getElementById('performBtn').onclick=()=>setPerform(!state.perform);
+document.getElementById('phExit').onclick=()=>setPerform(false);
+document.getElementById('phPrev').onclick=()=>{stepEffect(-1);};
+document.getElementById('phNext').onclick=()=>{stepEffect(1);};
+document.getElementById('phEnergy').oninput=e=>{ setEnergy(e.target.value,'hud'); pokeHUD(); };
+document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement && state.perform) setPerform(false); });
+window.addEventListener('mousemove',()=>{ if(state.perform) pokeHUD(); });
+document.getElementById('xfadeTg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.crossfade=b.dataset.x==='on';[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  logStep('전환',state.crossfade?'크로스페이드':'하드컷');};
+document.getElementById('xfDur').oninput=e=>{state.xfadeDur=parseInt(e.target.value)/10;
+  document.getElementById('xfDurV').textContent=state.xfadeDur.toFixed(1)+'s';};
+
+document.getElementById('playBtn').onclick=()=>{
+  if(state.recording) return;
+  state.playing=!state.playing;
+  state.loop=true;
+  if(state.playing) resetTimeline();
+  updatePlayBtn();
+};
+document.getElementById('recBtn').onclick=()=>{
+  if(state.recording) finishRecording(); else startRecording();
+};
+
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toUpperCase();
+  if(tag==='INPUT'||tag==='TEXTAREA') return;             // 슬라이더/입력 포커스 중엔 단축키 무시
+  if(e.code==='Space'){e.preventDefault();document.getElementById('playBtn').click();}
+  else if(e.key==='r'||e.key==='R'){document.getElementById('recBtn').click();}
+  else if(e.key==='l'||e.key==='L'){state.loop=!state.loop;}
+  else if(/[1-9]/.test(e.key)){const k=EFFECT_ORDER[parseInt(e.key)-1];
+    if(k) switchEffect(k);}
+  else if(e.key===','||e.key==='<'){stepEffect(-1);}       // 이전 효과(에너지 곡선 역순)
+  else if(e.key==='.'||e.key==='>'){stepEffect(1);}        // 다음 효과
+  else if(e.key==='['||e.key==='-'){setEnergy(state.energy-5);pokeHUD();}   // Energy ↓
+  else if(e.key===']'||e.key==='='||e.key==='+'){setEnergy(state.energy+5);pokeHUD();} // Energy ↑
+  else if(e.key==='p'||e.key==='P'){setPerform(!state.perform);}
+  else if(e.key==='Escape'&&state.perform){setPerform(false);}
+  else if(e.key==='v'||e.key==='V'){document.querySelector('#vrTg button[data-v="'+(state.vr?'off':'on')+'"]').click();}
+  else if(e.key==='k'||e.key==='K'){const seq=[0,4,6,8],ni=(seq.indexOf(state.kaleido)+1)%4;
+    document.querySelector('#kalGrid [data-k="'+seq[ni]+'"]').click();}
+});
+
+/* audio UI */
+const audDrop=document.getElementById('audDrop'), audFileEl=document.getElementById('audFile');
+function handleAudio(f){
+  loadAudio(f);
+  audDrop.classList.add('loaded'); audDrop.textContent='♪ '+f.name+' — 재생 중';
+  state.reactive=true;
+  [...document.querySelectorAll('#reactTg button')].forEach(b=>b.classList.toggle('on',b.dataset.r==='on'));
+}
+audDrop.onclick=()=>audFileEl.click();
+audFileEl.onchange=e=>{ if(e.target.files[0]) handleAudio(e.target.files[0]); };
+['dragover','dragenter'].forEach(ev=>audDrop.addEventListener(ev,e=>{e.preventDefault();audDrop.classList.add('drag');}));
+['dragleave'].forEach(ev=>audDrop.addEventListener(ev,e=>{e.preventDefault();audDrop.classList.remove('drag');}));
+audDrop.addEventListener('drop',e=>{e.preventDefault();audDrop.classList.remove('drag');
+  const f=e.dataTransfer.files[0]; if(f) handleAudio(f);});
+document.getElementById('reactTg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.reactive=b.dataset.r==='on';
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));};
+document.getElementById('audPlay').onclick=()=>{if(!audioEl)return;
+  if(audioEl.paused){actx&&actx.resume();audioEl.play();}else audioEl.pause();};
+document.getElementById('syncLen').onclick=()=>{if(AUD.bpm>0){
+  state.duration=clamp(4*60/AUD.bpm,0.4,6);
+  document.getElementById('dur').value=state.duration;
+  document.getElementById('durV').textContent=state.duration.toFixed(1)+'s';}};
+document.getElementById('sens').oninput=e=>{const v=parseInt(e.target.value);state.audioSens=v/100;
+  document.getElementById('sensV').textContent=v<120?'민감':v<150?'표준':'둔감';};
+
+/* advanced UI: VR / 진동 / 만화경 / 타겟색 */
+document.getElementById('vrTg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.vr=b.dataset.v==='on';[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  updatePointsUI();};
+document.getElementById('vrSep').oninput=e=>{state.vrSep=parseInt(e.target.value);
+  document.getElementById('vrSepV').textContent=e.target.value; positionHandles();};
+document.getElementById('conv').oninput=e=>{state.converge=parseInt(e.target.value);
+  document.getElementById('convV').textContent=e.target.value; positionHandles();};
+document.getElementById('fish').oninput=e=>{state.fisheye=parseInt(e.target.value)/100;
+  document.getElementById('fishV').textContent=e.target.value+'%';};
+document.getElementById('anaTg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.anaglyph=b.dataset.an==='on';[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  updatePointsUI();logStep('애너글리프',state.anaglyph?'ON':'OFF');};
+/* 입체 예제 프리셋 */
+const DEPTH_PRESETS={
+  flat:{vr:true,ana:false,vrSep:8, conv:0,  fish:0,  za:0},
+  pop: {vr:true,ana:false,vrSep:18,conv:-16,fish:0.1,za:40},
+  deep:{vr:true,ana:false,vrSep:14,conv:18, fish:0,  za:-40},
+  dome:{vr:true,ana:false,vrSep:12,conv:-4, fish:0.55,za:10},
+};
+function setSlider(id,val,labId,labTxt){const el=document.getElementById(id);if(el)el.value=val;if(labId)document.getElementById(labId).textContent=labTxt;}
+function applyDepthPreset(key){
+  const d=DEPTH_PRESETS[key];if(!d)return;
+  state.vr=d.vr; state.anaglyph=d.ana; state.vrSep=d.vrSep; state.converge=d.conv; state.fisheye=d.fish;
+  state.origin.z=d.za/100;
+  // 토글/슬라이더 UI 동기화
+  [...document.getElementById('vrTg').children].forEach(c=>c.classList.toggle('on',c.dataset.v===(d.vr?'on':'off')));
+  [...document.getElementById('anaTg').children].forEach(c=>c.classList.toggle('on',c.dataset.an===(d.ana?'on':'off')));
+  setSlider('vrSep',d.vrSep,'vrSepV',d.vrSep);
+  setSlider('conv',d.conv,'convV',d.conv);
+  setSlider('fish',Math.round(d.fish*100),'fishV',Math.round(d.fish*100)+'%');
+  setSlider('za',d.za,'zaV',(d.za/100).toFixed(1));
+  updatePointsUI(); logStep('입체 예제',key);
+}
+document.getElementById('depthPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b)); applyDepthPreset(b.dataset.dp);};
+document.getElementById('oscGrid').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.osc=b.dataset.o;[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));};
+document.getElementById('oscAmt').oninput=e=>{state.oscAmt=parseInt(e.target.value)/100;
+  document.getElementById('oscAmtV').textContent=e.target.value+'%';};
+document.getElementById('oscSp').oninput=e=>{state.oscSpeed=parseInt(e.target.value)/100;
+  document.getElementById('oscSpV').textContent=state.oscSpeed.toFixed(1)+'×';};
+document.getElementById('kalGrid').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.kaleido=parseInt(b.dataset.k);
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  document.getElementById('kalV').textContent=state.kaleido?state.kaleido+'분할':'OFF';};
+const targetCol=document.getElementById('targetCol'), targetApply=document.getElementById('targetApply');
+targetCol.oninput=e=>{state.targetColor=e.target.value; if(state.useTarget)applyPalette();};
+targetApply.onclick=()=>{state.useTarget=!state.useTarget;
+  targetApply.classList.toggle('on',state.useTarget);
+  targetApply.textContent=state.useTarget?'적용됨 ✓':'팔레트에 적용';
+  applyPalette();};
+document.getElementById('soft').oninput=e=>{state.soft=parseInt(e.target.value)/100;
+  document.getElementById('softV').textContent=e.target.value+'%';};
+document.getElementById('seamTg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.seamless=b.dataset.s==='on';[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));};
+document.getElementById('seqFps').onchange=e=>{exportFps=parseInt(e.target.value);};
+document.getElementById('seqBtn').onclick=()=>exportPNGSeq();
+
+/* ---- 포인트(타격/시작점) 핸들 ---- */
+const ptA=document.getElementById('ptA'), ptB=document.getElementById('ptB'),
+      ptA2=document.getElementById('ptA2'), ptB2=document.getElementById('ptB2'),
+      ptLine=document.getElementById('ptLine'), ptLineEl=ptLine.querySelector('line'),
+      ptLine2=document.getElementById('ptLine2'), ptLine2El=ptLine2.querySelector('line');
+ptA.insertAdjacentHTML('beforeend','<span class="zbadge"></span>');
+ptB.insertAdjacentHTML('beforeend','<span class="zbadge"></span>');
+/* 점의 VR 시차(폭 대비 분수). ozPar() 와 동일 공식: vrSep*(1+z*2) */
+function parFrac(z){ return (state.vrSep*(1+z*2) - state.converge)/main.width; }
+/* 한 점의 화면상 표시 위치(분수). VR이면 좌/우 눈 squish 좌표 반환 */
+function eyePos(x,z){
+  if(!sbsMode()) return {L:{x,y:0},R:null};
+  const pf=parFrac(z);
+  return { L:{x:(x-pf)/2}, R:{x:0.5+(x+pf)/2} };
+}
+function placeDot(el,xfrac,yfrac){ el.style.left=xfrac*100+'%'; el.style.top=yfrac*100+'%'; }
+function positionHandles(){
+  const ww=ptA.parentElement.clientWidth, hh=ptA.parentElement.clientHeight;
+  const a=eyePos(state.origin.x,state.origin.z), b=eyePos(state.target.x,state.target.z);
+  // 깊이 배지
+  ptA.querySelector('.zbadge').textContent=state.vr?('z '+state.origin.z.toFixed(1)):'';
+  ptB.querySelector('.zbadge').textContent=state.vr?('z '+state.target.z.toFixed(1)):'';
+  if(sbsMode()){
+    placeDot(ptA,a.L.x,state.origin.y); placeDot(ptA2,a.R.x,state.origin.y);
+    placeDot(ptB,b.L.x,state.target.y); placeDot(ptB2,b.R.x,state.target.y);
+    ptLineEl.setAttribute('x1',a.L.x*ww);ptLineEl.setAttribute('y1',state.origin.y*hh);
+    ptLineEl.setAttribute('x2',b.L.x*ww);ptLineEl.setAttribute('y2',state.target.y*hh);
+    ptLine2El.setAttribute('x1',a.R.x*ww);ptLine2El.setAttribute('y1',state.origin.y*hh);
+    ptLine2El.setAttribute('x2',b.R.x*ww);ptLine2El.setAttribute('y2',state.target.y*hh);
+  } else {
+    placeDot(ptA,state.origin.x,state.origin.y); placeDot(ptB,state.target.x,state.target.y);
+    ptLineEl.setAttribute('x1',state.origin.x*ww);ptLineEl.setAttribute('y1',state.origin.y*hh);
+    ptLineEl.setAttribute('x2',state.target.x*ww);ptLineEl.setAttribute('y2',state.target.y*hh);
+  }
+}
+function updatePointsUI(){
+  const showB=state.showPoints&&state.move;
+  ptA.classList.toggle('show',state.showPoints);
+  ptB.classList.toggle('show',showB);
+  ptA2.classList.toggle('show',state.showPoints&&sbsMode());     // 미러 핸들은 SBS에서만
+  ptB2.classList.toggle('show',showB&&sbsMode());
+  ptLine.classList.toggle('show',showB);
+  ptLine2.classList.toggle('show',showB&&sbsMode());
+  positionHandles();
+}
+/* 화면 포인터(분수)를 씬 좌표로 역변환. VR이면 어느 눈 절반인지 보고 squish 역산 */
+function screenToScene(fx,fy,z){
+  if(!sbsMode()) return {x:clamp(fx,0,1), y:clamp(fy,0,1)};
+  const pf=parFrac(z);
+  let x = fx<0.5 ? (2*fx+pf) : (2*(fx-0.5)-pf);
+  return {x:clamp(x,0,1), y:clamp(fy,0,1)};
+}
+function dragHandle(el,pt,name){
+  el.addEventListener('pointerdown',e=>{e.preventDefault();el.setPointerCapture(e.pointerId);el._d=true;});
+  el.addEventListener('pointermove',e=>{ if(!el._d)return;
+    const r=main.getBoundingClientRect();
+    const s=screenToScene((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height,pt.z);
+    pt.x=s.x; pt.y=s.y; positionHandles();});
+  el.addEventListener('pointerup',e=>{el._d=false;logStep('포인트',name+` (${pt.x.toFixed(2)},${pt.y.toFixed(2)})`);});
+}
+dragHandle(ptA,state.origin,'A'); dragHandle(ptB,state.target,'B');
+dragHandle(ptA2,state.origin,'A'); dragHandle(ptB2,state.target,'B');   // 미러 핸들도 같은 점을 드래그
+/* 휠로 깊이(z) 조절 — 가까운 핸들을 앞/뒤로 밀기(전용 depth 드래그) */
+function setZ(which,z){
+  z=clamp(z,-1,1);
+  if(which==='A'){ state.origin.z=z; document.getElementById('za').value=Math.round(z*100); document.getElementById('zaV').textContent=z.toFixed(1); }
+  else { state.target.z=z; document.getElementById('zb').value=Math.round(z*100); document.getElementById('zbV').textContent=z.toFixed(1); }
+  positionHandles();
+}
+document.querySelector('.canvas-wrap').addEventListener('wheel',e=>{
+  if(!state.showPoints) return;
+  const r=main.getBoundingClientRect(), fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+  // 화면상 A/B 표시 위치와의 거리로 대상 선택
+  const aP=eyePos(state.origin.x,state.origin.z), bP=eyePos(state.target.x,state.target.z);
+  const ax=sbsMode()?(fx<0.5?aP.L.x:aP.R.x):state.origin.x, ay=state.origin.y;
+  const bx=sbsMode()?(fx<0.5?bP.L.x:bP.R.x):state.target.x, by=state.target.y;
+  const dA=Math.hypot(fx-ax,fy-ay), dB=(state.move?Math.hypot(fx-bx,fy-by):9);
+  if(Math.min(dA,dB)>0.14) return;                 // 핸들 근처에서만 작동
+  e.preventDefault();
+  const step=(e.deltaY<0?1:-1)*0.05;
+  if(dA<=dB) setZ('A',state.origin.z+step); else setZ('B',state.target.z+step);
+  logStep('깊이 z',(dA<=dB?'A ':'B ')+(dA<=dB?state.origin.z:state.target.z).toFixed(2));
+},{passive:false});
+window.addEventListener('resize',positionHandles);
+document.getElementById('ptShowTg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.showPoints=b.dataset.ps==='on';[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));updatePointsUI();};
+document.getElementById('za').oninput=e=>{state.origin.z=parseInt(e.target.value)/100;
+  document.getElementById('zaV').textContent=state.origin.z.toFixed(1); positionHandles();};
+document.getElementById('zb').oninput=e=>{state.target.z=parseInt(e.target.value)/100;
+  document.getElementById('zbV').textContent=state.target.z.toFixed(1); positionHandles();};
+document.getElementById('moveTg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.move=b.dataset.m==='on';[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  updatePointsUI();logStep('A→B 이동',state.move?'ON':'OFF');};
+
+/* ---- 워크플로 레시피 ---- */
+let recipeLog=[];
+function logStep(label,value){recipeLog.push({label,value});if(recipeLog.length>14)recipeLog.shift();}
+function buildRecipe(){
+  const e=EFFECTS[state.effect], pct=v=>Math.round(v*100)+'%';
+  let s='# Transition Studio 레시피\n생성: '+new Date().toLocaleString()+'\n';
+  s+='\n■ 권장 조작 순서대로 현재 설정\n';
+  s+='1) 효과   : '+e.label+' ('+state.effect+') — '+e.desc+'\n';
+  s+='2) 기본   : '+(state.aspect==='land'?'16:9':'9:16')+' / 길이 '+state.duration+'s / 강도 '+pct(state.intensity)+' / Energy '+state.energy+'\n';
+  s+='3) 색     : '+PALETTES[state.palette].name+(state.useTarget?' + 타겟 '+state.targetColor:'')+' / 방향 '+state.direction+' / 배경 '+state.bg+'\n';
+  s+='4) 포인트 : A('+state.origin.x.toFixed(2)+','+state.origin.y.toFixed(2)+',z'+state.origin.z.toFixed(2)+')'
+     +(state.move?' → B('+state.target.x.toFixed(2)+','+state.target.y.toFixed(2)+',z'+state.target.z.toFixed(2)+') 이동':' 고정')+'\n';
+  s+='5) 움직임 : 진동 '+state.osc+(state.osc!=='off'?' '+pct(state.oscAmt)+' x'+state.oscSpeed.toFixed(1):'')
+     +' / 만화경 '+(state.kaleido||'OFF')+'\n';
+  s+='6) 질감   : 부드러움 '+pct(state.soft)+' / 루프 '+(state.seamless?'ON':'OFF')
+     +' / 전환 '+(state.crossfade?'크로스페이드 '+state.xfadeDur.toFixed(1)+'s':'하드컷')+'\n';
+  s+='7) VR     : '+(state.vr?((state.anaglyph?'애너글리프':'SBS')+' 시차 '+state.vrSep+' 수렴 '+state.converge):'OFF')
+     +(state.fisheye>0?' / 피쉬아이 '+pct(state.fisheye):'')+'\n';
+  s+='8) 오디오 : '+(state.reactive?'비트반응 ON 감도 '+state.audioSens:'OFF')+'\n';
+  s+='9) 출력   : '+(state.out==='green'?'그린스크린(MP4 우선)':'알파')+' / 내보내기 '+exportFps+'fps\n';
+  s+='\n■ 최근 조작 순서\n'+(recipeLog.length?recipeLog.map((r,i)=>(i+1)+'. '+r.label+': '+r.value).join('\n'):'(기록 없음)');
+  return s;
+}
+const recipeModal=document.getElementById('recipeModal');
+document.getElementById('recipeBtn').onclick=()=>{document.getElementById('recipeText').textContent=buildRecipe();recipeModal.classList.add('show');};
+document.getElementById('recipeClose').onclick=()=>recipeModal.classList.remove('show');
+recipeModal.onclick=e=>{if(e.target===recipeModal)recipeModal.classList.remove('show');};
+document.getElementById('recipeCopy').onclick=()=>{try{navigator.clipboard.writeText(buildRecipe());}catch(e){}};
+document.getElementById('recipeSave').onclick=()=>{const blob=new Blob([buildRecipe()],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='transition_recipe.txt';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);};
+
+/* 접이식 그룹 토글 */
+document.querySelectorAll('.group-head').forEach(hd=>
+  hd.onclick=()=>hd.parentElement.classList.toggle('open'));
+
+/* init */
+setCanvasSize();
+buildEffects();
+buildPalettes();
+updateDesc(state.effect);
+updatePointsUI();
+main.style.background=state.bg;
+rebuild();
+state.playing=true; resetTimeline(); updatePlayBtn();
+loop();
+</script>
+</body>
+</html>
