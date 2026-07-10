@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Shape of Demand — An Interactive Parable of Commerce</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&family=Noto+Sans:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- Three.js core + OBJLoader -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+
+<style>
+  :root{
+    --bg-deep:#04070f; --bg-panel:#080e1d; --bg-panel-2:#0b1428;
+    --line:rgba(0,229,255,.13); --line-strong:rgba(0,229,255,.45);
+    --cyan:#00e5ff; --magenta:#ff3d81; --violet:#8a5cff; --gold:#ffd166;
+    --text:#eaf3ff; --text-2:#7f92b8; --text-3:#46557a;
+    --glow:0 0 18px rgba(0,229,255,.5);
+    --kr:'Noto Sans KR',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--bg-deep);color:var(--text);
+    font-family:'Noto Sans','Noto Sans KR',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  h1,h2,button,.mono-head{font-family:'Poppins','Noto Sans KR',sans-serif}
+
+  .app{display:flex;width:100vw;height:100vh}
+
+  /* ============ VIEWPORT ============ */
+  .viewport{position:relative;flex:0 0 72%;max-width:72%;height:100%;overflow:hidden;
+    background:radial-gradient(circle at 50% 25%,rgba(0,229,255,.05),transparent 55%),var(--bg-deep);
+    border-right:1px solid var(--line)}
+  #canvas2d{position:absolute;inset:0;width:100%;height:100%;transition:opacity 1.1s ease;z-index:1}
+  #canvas2d.fade-out{opacity:0}
+  #threeContainer{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .9s ease;z-index:2}
+  #threeContainer.visible{opacity:1}
+  #threeContainer canvas{display:block}
+  .vignette{position:absolute;inset:0;z-index:3;pointer-events:none;
+    background:radial-gradient(circle at 50% 50%,transparent 52%,rgba(0,0,0,.6) 100%)}
+  .scanlines{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.4;
+    background:repeating-linear-gradient(to bottom,rgba(255,255,255,.02) 0 1px,transparent 2px 3px)}
+
+  .stage-label{position:absolute;top:22px;left:26px;z-index:5;display:flex;align-items:center;gap:10px;pointer-events:none}
+  .stage-tag{font-family:'Poppins';font-weight:700;font-size:12px;letter-spacing:2px;color:var(--bg-deep);
+    background:var(--cyan);padding:5px 10px;border-radius:4px;box-shadow:var(--glow)}
+  .stage-sub{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text-2)}
+
+  .slowmo-chip{position:absolute;top:22px;right:26px;z-index:5;pointer-events:none;
+    font-family:'Poppins';font-size:10px;font-weight:600;letter-spacing:2px;color:var(--gold);
+    border:1px solid rgba(255,209,102,.45);background:rgba(10,10,5,.55);padding:5px 10px;border-radius:5px;
+    opacity:0;transition:opacity .5s}
+  .slowmo-chip.on{opacity:1;animation:blink 1.6s ease infinite}
+  @keyframes blink{50%{opacity:.45}}
+
+  /* Hero: era-transition card. JS-timed, slow & readable. */
+  .hero{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;pointer-events:none;opacity:0;padding:0 9%;
+    transition:opacity 1s ease;background:radial-gradient(circle at 50% 45%,rgba(4,7,15,.82),rgba(4,7,15,.55) 65%,transparent)}
+  .hero.show{opacity:1}
+  .hero-kicker{font-family:'Poppins',var(--kr);font-size:12px;font-weight:600;letter-spacing:5px;color:var(--gold);
+    text-transform:uppercase;margin-bottom:16px;text-shadow:0 0 14px rgba(255,209,102,.5)}
+  .hero-why{max-width:640px;font-size:15.5px;line-height:1.75;color:var(--text-2);font-style:italic;margin-bottom:22px}
+  .hero-title{font-family:'Poppins',var(--kr);font-weight:900;font-size:clamp(30px,4.4vw,60px);line-height:1.1;
+    text-shadow:0 0 30px rgba(0,229,255,.35),0 4px 30px rgba(0,0,0,.8)}
+  .hero-progress{margin-top:30px;width:170px;height:2px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden}
+  .hero-progress i{display:block;height:100%;width:0;background:var(--cyan);border-radius:2px}
+
+  /* Cinema captions */
+  .caption{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);z-index:5;
+    max-width:min(700px,80%);text-align:center;pointer-events:none;
+    opacity:0;transition:opacity .45s ease}
+  .caption.visible{opacity:1}
+  .caption .who{display:block;font-family:'Poppins',var(--kr);font-size:10px;font-weight:700;
+    letter-spacing:3px;color:var(--cyan);margin-bottom:6px;text-shadow:0 0 10px rgba(0,229,255,.6)}
+  .caption .txt{display:inline-block;background:rgba(4,8,18,.82);border:1px solid rgba(0,229,255,.22);
+    border-radius:10px;padding:12px 20px;font-size:15.5px;line-height:1.65;color:var(--text);
+    box-shadow:0 6px 30px rgba(0,0,0,.5)}
+
+  .toast{position:absolute;right:26px;top:64px;z-index:5;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .toast div{background:rgba(7,13,28,.9);border:1px solid rgba(255,61,129,.5);border-left:3px solid var(--magenta);
+    color:var(--text);font-size:11.5px;padding:8px 12px;border-radius:6px;max-width:320px;
+    box-shadow:0 0 14px rgba(255,61,129,.25);animation:toastIn .3s ease,toastOut .5s ease 4.4s forwards}
+  @keyframes toastIn{from{opacity:0;transform:translateX(20px)}}
+  @keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+
+  /* Prologue overlay */
+  .prologue{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 30%,#0a1526 0%,#04070f 70%);transition:opacity .8s ease;overflow-y:auto}
+  .prologue.hidden{opacity:0;pointer-events:none}
+  .prologue-inner{max-width:680px;padding:48px 40px;text-align:center}
+  .pro-kicker{font-family:'Poppins',var(--kr);font-size:11px;font-weight:700;letter-spacing:5px;
+    color:var(--cyan);text-transform:uppercase;margin-bottom:18px;text-shadow:var(--glow)}
+  .pro-title{font-family:'Poppins',var(--kr);font-weight:900;font-size:clamp(34px,4.6vw,58px);
+    line-height:1.12;margin-bottom:30px;
+    background:linear-gradient(120deg,#eaf3ff 30%,var(--cyan) 65%,var(--violet));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .pro-para{font-size:15px;line-height:1.85;color:var(--text-2);margin-bottom:18px;text-align:left}
+  .pro-para b{color:var(--text)}
+  .pro-cta{margin-top:26px;display:inline-block;font-family:'Poppins',var(--kr);font-weight:700;font-size:15px;
+    color:var(--bg-deep);background:linear-gradient(120deg,var(--cyan),#7ce7ff);border:none;border-radius:10px;
+    padding:14px 34px;cursor:pointer;box-shadow:0 0 26px rgba(0,229,255,.45);transition:.25s}
+  .pro-cta:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(0,229,255,.7)}
+  .pro-note{margin-top:16px;font-size:11.5px;color:var(--text-3)}
+
+  /* Final question card */
+  .final-card{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:0 10%;opacity:0;pointer-events:none;
+    background:rgba(4,7,15,.86);backdrop-filter:blur(6px);transition:opacity 1.4s ease}
+  .final-card.show{opacity:1;pointer-events:auto}
+  .final-kicker{font-family:'Poppins',var(--kr);font-size:11px;font-weight:700;letter-spacing:5px;
+    color:var(--magenta);text-transform:uppercase;margin-bottom:22px}
+  .final-title{font-family:'Poppins',var(--kr);font-weight:900;font-size:clamp(26px,3.6vw,46px);
+    line-height:1.3;max-width:820px;margin-bottom:22px;text-shadow:0 0 40px rgba(0,229,255,.3)}
+  .final-sub{font-size:16.5px;line-height:1.8;color:var(--text-2);max-width:640px;margin-bottom:36px}
+  .final-btns{display:flex;gap:12px}
+  .final-btn{font-family:'Poppins',var(--kr);font-weight:600;font-size:13px;padding:12px 26px;border-radius:9px;
+    cursor:pointer;transition:.25s;border:1px solid var(--line-strong);background:none;color:var(--cyan)}
+  .final-btn:hover{background:rgba(0,229,255,.1);box-shadow:var(--glow)}
+
+  #bootOverlay{position:absolute;inset:0;z-index:10;background:var(--bg-deep);display:flex;
+    flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .6s ease}
+  #bootOverlay.hidden{opacity:0;pointer-events:none}
+  .boot-ring{width:44px;height:44px;border-radius:50%;border:2px solid rgba(0,229,255,.15);
+    border-top-color:var(--cyan);animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .boot-text{font-family:'Poppins';font-size:11px;letter-spacing:3px;color:var(--text-2)}
+
+  /* ============ DASHBOARD ============ */
+  .dashboard{flex:0 0 28%;max-width:28%;height:100%;overflow-y:auto;
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    padding:22px 20px;display:flex;flex-direction:column;gap:16px}
+  .dash-header{display:flex;align-items:center;gap:10px}
+  .logo-mark{width:38px;height:38px;flex-shrink:0;border-radius:8px;
+    background:linear-gradient(135deg,var(--cyan),var(--violet));display:flex;align-items:center;
+    justify-content:center;font-family:'Poppins';font-weight:800;font-size:12px;color:#040810;box-shadow:var(--glow)}
+  .dash-title{font-family:'Poppins',var(--kr);font-weight:700;font-size:12.5px;letter-spacing:1px;line-height:1.3}
+  .dash-subtitle{font-size:10px;color:var(--text-2);margin-top:2px}
+  .hdr-btns{margin-left:auto;display:flex;gap:6px}
+  .hdr-btn{background:none;border:1px solid var(--line);color:var(--text-2);
+    border-radius:8px;height:32px;min-width:32px;padding:0 9px;cursor:pointer;font-size:11.5px;
+    font-family:'Poppins',var(--kr);font-weight:600;transition:.2s}
+  .hdr-btn:hover{border-color:var(--line-strong);color:var(--text)}
+  .hdr-btn.on{color:var(--cyan);border-color:var(--line-strong);box-shadow:0 0 8px rgba(0,229,255,.25)}
+
+  .chapters-label{font-family:'Poppins',var(--kr);font-size:9.5px;letter-spacing:2.5px;color:var(--text-3);
+    font-weight:700;text-transform:uppercase;margin-bottom:-8px}
+  .stage-selector{display:flex;flex-direction:column;gap:5px}
+  .stage-btn{display:flex;align-items:center;gap:9px;text-align:left;background:rgba(255,255,255,.02);
+    border:1px solid var(--line);color:var(--text-2);font-size:12px;font-weight:500;
+    padding:9px 11px;border-radius:9px;cursor:pointer;transition:.22s ease;font-family:'Noto Sans',var(--kr)}
+  .stage-btn .num{font-family:'Poppins';font-weight:700;font-size:9.5px;color:var(--text-3);
+    border:1px solid var(--line);border-radius:5px;padding:2px 5px;flex-shrink:0}
+  .stage-btn:hover{border-color:var(--line-strong);color:var(--text)}
+  .stage-btn.active{background:rgba(0,229,255,.08);border-color:var(--cyan);color:var(--text);
+    box-shadow:0 0 0 1px rgba(0,229,255,.15),var(--glow)}
+  .stage-btn.active .num{color:var(--bg-deep);background:var(--cyan);border-color:var(--cyan)}
+  .stage-btn.done .num{color:var(--cyan);border-color:rgba(0,229,255,.4)}
+
+  .panel{background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:11px;padding:15px}
+  .eyebrow{font-family:'Poppins',var(--kr);font-size:9.5px;letter-spacing:2px;text-transform:uppercase;
+    color:var(--cyan);font-weight:600;margin-bottom:6px}
+  .info-title{font-family:'Poppins',var(--kr);font-size:15px;font-weight:700;line-height:1.35;margin-bottom:7px}
+  .info-desc{font-size:12px;line-height:1.65;color:var(--text-2)}
+  .info-why{font-size:11.5px;line-height:1.6;color:var(--text-3);font-style:italic;margin-top:9px;
+    border-top:1px dashed var(--line);padding-top:9px}
+
+  .gauge-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .gauge-label{font-family:'Poppins',var(--kr);font-size:9.5px;letter-spacing:2px;font-weight:600;color:var(--text-2)}
+  .gauge-value{font-family:'Poppins';font-size:20px;font-weight:800;color:var(--cyan);text-shadow:var(--glow)}
+  .gauge-value::after{content:"%";font-size:11px;opacity:.6}
+  .gauge-track{position:relative;height:9px;border-radius:6px;background:rgba(255,255,255,.05);
+    border:1px solid var(--line);overflow:hidden}
+  .gauge-fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:6px;
+    background:linear-gradient(90deg,var(--violet),var(--cyan));box-shadow:0 0 12px rgba(0,229,255,.6)}
+
+  details.underhood{border:1px solid var(--line);border-radius:11px;background:rgba(0,0,0,.2);overflow:hidden}
+  details.underhood summary{cursor:pointer;list-style:none;padding:12px 15px;
+    font-family:'Poppins',var(--kr);font-size:10px;font-weight:700;letter-spacing:2px;color:var(--text-3);
+    text-transform:uppercase;transition:.2s}
+  details.underhood summary:hover{color:var(--text-2)}
+  details.underhood summary::before{content:'▸ ';color:var(--cyan)}
+  details.underhood[open] summary::before{content:'▾ '}
+  .underhood-body{padding:0 15px 14px;display:flex;flex-direction:column;gap:12px}
+  .tele-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .tele-cell{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .tele-k{font-size:8px;letter-spacing:1.5px;color:var(--text-3);font-weight:600;text-transform:uppercase}
+  .tele-v{font-family:'Poppins';font-size:13.5px;font-weight:700;color:var(--text);margin-top:2px}
+  .tele-v.hot{color:var(--magenta)}
+  .bind-sum{font-size:10.5px;color:var(--text-2)}
+  .bind-sum b{color:var(--cyan)}
+  .tech-chip{display:inline-block;font-size:10px;font-weight:600;color:var(--violet);
+    background:rgba(138,92,255,.12);border:1px solid rgba(138,92,255,.35);padding:4px 9px;border-radius:20px}
+
+  .dash-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);
+    font-size:9.5px;line-height:1.7;color:var(--text-3)}
+
+  ::-webkit-scrollbar{width:5px}
+  ::-webkit-scrollbar-thumb{background:rgba(0,229,255,.25);border-radius:10px}
+
+  @media (max-width:900px){
+    .app{flex-direction:column}
+    .viewport{flex-basis:54%;max-width:100%;border-right:none;border-bottom:1px solid var(--line)}
+    .dashboard{flex-basis:46%;max-width:100%}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="viewport" id="viewport">
+    <canvas id="canvas2d"></canvas>
+    <div id="threeContainer"></div>
+    <div class="vignette"></div>
+    <div class="scanlines"></div>
+
+    <div class="stage-label">
+      <span class="stage-tag" id="stageTag">CH 00</span>
+      <span class="stage-sub" id="stageSubLabel"></span>
+    </div>
+    <div class="slowmo-chip" id="slowmoChip">◉ SLOW MOTION ×0.45</div>
+
+    <div class="hero" id="hero">
+      <div class="hero-kicker" id="heroKicker"></div>
+      <div class="hero-why" id="heroWhy"></div>
+      <div class="hero-title" id="heroTitle"></div>
+      <div class="hero-progress"><i id="heroBar"></i></div>
+    </div>
+
+    <div class="caption" id="captionBox">
+      <span class="who" id="captionWho"></span>
+      <span class="txt" id="captionText"></span>
+    </div>
+
+    <div class="toast" id="toastArea"></div>
+
+    <div class="prologue" id="prologue">
+      <div class="prologue-inner">
+        <div class="pro-kicker" id="proKicker"></div>
+        <div class="pro-title" id="proTitle"></div>
+        <div id="proParas"></div>
+        <button class="pro-cta" id="proCta"></button>
+        <div class="pro-note" id="proNote"></div>
+      </div>
+    </div>
+
+    <div class="final-card" id="finalCard">
+      <div class="final-kicker" id="finalKicker"></div>
+      <div class="final-title" id="finalTitle"></div>
+      <div class="final-sub" id="finalSub"></div>
+      <div class="final-btns">
+        <button class="final-btn" id="finalReplay"></button>
+      </div>
+    </div>
+
+    <div id="bootOverlay"><div class="boot-ring"></div><div class="boot-text">BINDING ASSET REGISTRY</div></div>
+  </div>
+
+  <aside class="dashboard">
+    <div class="dash-header">
+      <div class="logo-mark">SD</div>
+      <div>
+        <div class="dash-title" id="dashTitle">THE SHAPE OF DEMAND</div>
+        <div class="dash-subtitle" id="dashSub">An Interactive Parable of Commerce</div>
+      </div>
+      <div class="hdr-btns">
+        <button class="hdr-btn" id="langBtn" title="Language">한</button>
+        <button class="hdr-btn" id="playBtn" title="Present all chapters">▶</button>
+        <button class="hdr-btn" id="muteBtn" title="Sound">♪</button>
+      </div>
+    </div>
+
+    <div class="chapters-label" id="chaptersLabel">CHAPTERS</div>
+    <div class="stage-selector" id="stageSelector"></div>
+
+    <div class="panel">
+      <div class="eyebrow" id="infoSubtitle"></div>
+      <div class="info-title" id="infoTitle"></div>
+      <div class="info-desc" id="infoDesc"></div>
+      <div class="info-why" id="infoWhy"></div>
+    </div>
+
+    <div class="panel">
+      <div class="gauge-row">
+        <span class="gauge-label" id="gaugeLabel">SCALABILITY INDEX</span>
+        <span class="gauge-value" id="gaugeValue">0</span>
+      </div>
+      <div class="gauge-track"><div class="gauge-fill" id="gaugeFill"></div></div>
+    </div>
+
+    <details class="underhood">
+      <summary id="underhoodLabel">Under the hood</summary>
+      <div class="underhood-body">
+        <div class="tele-grid">
+          <div class="tele-cell"><div class="tele-k">Throughput</div><div class="tele-v" id="teleThroughput">—</div></div>
+          <div class="tele-cell"><div class="tele-k">Coverage</div><div class="tele-v" id="teleCoverage">—</div></div>
+          <div class="tele-cell"><div class="tele-k">Human Dependency</div><div class="tele-v hot" id="teleHuman">—</div></div>
+          <div class="tele-cell"><div class="tele-k">Render Mode</div><div class="tele-v" id="teleRender" style="font-size:11px">—</div></div>
+        </div>
+        <span class="tech-chip" id="infoTech"></span>
+        <div class="bind-sum" id="bindSummary">scanning…</div>
+      </div>
+    </details>
+
+    <div class="dash-footer">
+      Single-file HTML5 prototype · AI-augmented rapid prototyping<br>
+      2D art: Ninja Adventure © Pixel-boy &amp; AAA (CC0) · 3D: KayKit City Builder © Kay Lousberg (CC0)
+    </div>
+  </aside>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   ██ 1. TOTAL ASSET REGISTRY — single editing surface.
+   Any missing file falls back to procedural graphics automatically.
+===================================================================== */
+const TOTAL_ASSET_REGISTRY = {
+  audio: {
+    bgm_past:   'assets/audio/bgm_past.ogg',
+    bgm_future: 'assets/audio/bgm_future.ogg',
+    sfx_click:  'assets/audio/click.wav',
+    sfx_spawn:  'assets/audio/spawn.wav',
+    sfx_throw:  'assets/audio/throw.wav',
+    sfx_coin:   'assets/audio/coin.wav'
+  },
+  pixel_characters: {
+    merchants: {
+      ninja_low:    'assets/char/ninja_green.png',
+      ninja_mid:    'assets/char/ninja_blue.png',
+      ninja_master: 'assets/char/ninja_red.png',
+      ninja_cyborg: 'assets/char/ninja_cyborg.png'
+    },
+    customers: {
+      monster_slime:  'assets/char/monster_slime.png',
+      monster_goblin: 'assets/char/monster_kappa.png',
+      monster_orc:    'assets/char/monster_cyclope.png',
+      monster_boss:   'assets/char/monster_boss.png'
+    },
+    staff: {
+      ninja_clone1: 'assets/char/staff_gray.png',
+      ninja_clone2: 'assets/char/staff_yellow.png',
+      clerk_pixel:  'assets/char/clerk.png'
+    }
+  },
+  pixel_items: {
+    weapons: { kunai:'assets/items/kunai.png', shuriken:'assets/items/shuriken.png', katana:'assets/items/katana.png' },
+    goods:   { potion:'assets/items/potion.png', scroll:'assets/items/scroll.png',
+               chest:'assets/items/chest.png', coin:'assets/items/coin.png' }
+  },
+  pixel_tiles: {
+    floor:'assets/tiles/floor.png', nature:'assets/tiles/nature.png', house:'assets/tiles/house.png'
+  },
+  lowpoly_3d: {
+    buildings: {
+      corp_tower:'assets/3d/building_H_withoutBase.obj', shop_3d:'assets/3d/building_B_withoutBase.obj',
+      warehouse:'assets/3d/building_D_withoutBase.obj',  center:'assets/3d/building_G_withoutBase.obj',
+      extra_A:'assets/3d/building_A_withoutBase.obj',    extra_C:'assets/3d/building_C_withoutBase.obj',
+      extra_E:'assets/3d/building_E_withoutBase.obj',    extra_F:'assets/3d/building_F_withoutBase.obj'
+    },
+    infra: {
+      road_straight:'assets/3d/road_straight.obj', road_cross:'assets/3d/road_junction.obj',
+      streetlight:'assets/3d/streetlight.obj',     watertower:'assets/3d/watertower.obj',
+      car_taxi:'assets/3d/car_taxi.obj', car_police:'assets/3d/car_police.obj', car_sedan:'assets/3d/car_sedan.obj'
+    }
+  }
+};
+const TILE_RECTS = {
+  grass:  { atlas:'floor',  rect:[ 64,192,16,16] },
+  dirt:   { atlas:'floor',  rect:[208,112,16,16] },
+  sand:   { atlas:'floor',  rect:[128, 64,16,16] },
+  darkft: { atlas:'floor',  rect:[240,224,16,16] },
+  tree:   { atlas:'nature', rect:[  0, 32,48,48] },
+  sakura: { atlas:'nature', rect:[240,  0,48,48] },
+  rock:   { atlas:'nature', rect:[208, 96,48,48] },
+  house:  { atlas:'house',  rect:[  0,  0,64,56] },
+  dojo:   { atlas:'house',  rect:[128,  0,64,56] },
+  torii:  { atlas:'house',  rect:[ 24, 94,48,36] }
+};
+const FB={cyan:0x00e5ff,magenta:0xff3d81,violet:0x8a5cff,gold:0xffd166,navy:0x0a1730,road:0x0e1626};
+
+/* =====================================================================
+   ██ 2. THE STORY — bilingual narrative layer (EN / KO)
+===================================================================== */
+let LANG='en';
+const L=o=>(o&&(o[LANG]||o.en))||'';
+
+const PROLOGUE={
+  kicker:{en:'AN INTERACTIVE PARABLE OF COMMERCE',ko:'상업의 진화에 관한 인터랙티브 우화'},
+  title:{en:'The Shape of Demand',ko:'수요의 형태'},
+  paras:[
+    {en:'For ten thousand years, commerce has answered a single question: <b>how do you place what people need into their hands?</b>',
+     ko:'만 년 동안 상업은 단 하나의 질문에 답해왔습니다. <b>사람들이 필요로 하는 것을 어떻게 그들의 손에 쥐여줄 것인가?</b>'},
+    {en:'This is that story, compressed into six chapters — a parable told in pixels. One wandering merchant becomes a shop, a delivery network, a call center, a platform… and finally, an autonomous intelligence.',
+     ko:'이것은 그 이야기를 여섯 개의 챕터로 압축한, 픽셀로 그린 우화입니다. 한 명의 방랑 상인이 상점이 되고, 배달망이 되고, 콜센터가 되고, 플랫폼이 되고… 마침내 자율적인 지능이 됩니다.'},
+    {en:'Every era is born by breaking the <b>bottleneck</b> of the one before — and each forges a new one. Watch the world itself change, chapter by chapter.',
+     ko:'모든 시대는 이전 시대의 <b>병목</b>을 부수며 태어나고, 동시에 새로운 병목을 만듭니다. 챕터마다 세상 자체가 바뀌는 것을 지켜보세요.'},
+    {en:'It ends where we stand today — with AI mass-producing every essential to perfection, and one open question: <b>what will people want next?</b>',
+     ko:'이야기는 오늘 우리가 서 있는 지점에서 끝납니다. AI가 모든 필수품을 완벽하게 대량생산하는 시대 — 그렇다면 <b>사람들은 다음에 무엇을 원하게 될까요?</b>'}
+  ],
+  cta:{en:'Begin Chapter One ▶',ko:'1장 시작하기 ▶'},
+  note:{en:'Use the chapter list on the right to jump anywhere · 한국어 toggle in the top-right of the panel',
+        ko:'오른쪽 챕터 목록으로 자유롭게 이동할 수 있습니다 · 패널 우측 상단에서 EN/한국어 전환'}
+};
+
+const CHAPTERS={
+  0:{score:0,render:'—',throughput:'—',coverage:'—',human:'—',tech:{en:'Typographic overture',ko:'타이포그래픽 서곡'},
+     title:{en:'Prologue — The Shape of Demand',ko:'프롤로그 — 수요의 형태'},
+     short:{en:'Prologue',ko:'프롤로그'},
+     sub:{en:'Why this story matters',ko:'이 이야기가 중요한 이유'},
+     desc:{en:'An overture: ten thousand years of commerce, six bottlenecks, and the question AI puts to every company today.',
+           ko:'서곡: 만 년의 상업, 여섯 개의 병목, 그리고 오늘 AI가 모든 기업에 던지는 질문.'},
+     why:{en:'',ko:''}},
+  1:{score:5,render:'2D CANVAS',throughput:'3 /day',coverage:'1 valley',human:'100%',
+     tech:{en:'Pure 2D canvas · tile matrix',ko:'순수 2D 캔버스 · 타일 매트릭스'},
+     title:{en:'The Wandering Merchant',ko:'방랑 상인'},
+     short:{en:'The Wandering Merchant',ko:'방랑 상인'},
+     sub:{en:'Physical 1:1 encounters',ko:'물리적 1:1 대면'},
+     desc:{en:'One man walks to every customer he serves. His legs are the entire supply chain — and its hard limit.',
+           ko:'한 사람이 모든 손님에게 직접 걸어갑니다. 그의 두 다리가 공급망의 전부이자, 그 한계입니다.'},
+     why:{en:'Demand is everywhere. Supply is one man\'s two feet.',
+          ko:'수요는 어디에나 있습니다. 그러나 공급은 한 사람의 두 다리뿐입니다.'},
+     captions:[
+      {who:'NARRATOR',d:6,  en:'One merchant. Three customers, scattered across the valley.',ko:'상인 한 명. 계곡 곳곳에 흩어진 세 명의 손님.'},
+      {who:'NARRATOR',d:6.5,en:'Every sale begins with a walk. Watch a single day of commerce — in slow motion.',ko:'모든 판매는 걷기에서 시작됩니다. 하루치 장사를 슬로모션으로 지켜보세요.'},
+      {who:'MERCHANT',d:6,  en:'Fresh goods, friend! I walked half the valley to find you.',ko:'갓 만든 물건입니다! 당신을 찾아 계곡 반을 걸어왔어요.'},
+      {who:'NARRATOR',d:6.5,en:'Three sales by nightfall. One exhausted body.',ko:'해질녘까지 판매 세 건. 그리고 지쳐버린 몸 하나.'},
+      {who:'NARRATOR',d:7.5,en:'Bottleneck № 1 — a human can only be in one place at a time.',ko:'병목 №1 — 인간은 한 번에 한 곳에만 존재할 수 있습니다.'}]},
+  2:{score:15,render:'2D CANVAS',throughput:'40 /day',coverage:'1 village',human:'95%',
+     tech:{en:'Auto tile-mapping · queue sim',ko:'자동 타일맵 · 대기열 시뮬레이션'},
+     title:{en:'The Fixed Shop',ko:'고정 상점'},
+     short:{en:'The Fixed Shop',ko:'고정 상점'},
+     sub:{en:'A permanent point of sale',ko:'고정된 판매 거점'},
+     desc:{en:'A roof and a sign invert the flow of demand: customers now do the walking. The queue is born.',
+           ko:'지붕과 간판이 수요의 흐름을 뒤집습니다. 이제 손님이 걸어옵니다. 대기줄의 탄생입니다.'},
+     why:{en:'He realizes: a fixed place gathers customers better than tired legs can find them.',
+          ko:'그는 깨닫습니다 — 지친 다리로 손님을 찾아다니는 것보다, \'고정된 장소\'가 손님을 더 잘 모은다는 것을.'},
+     captions:[
+      {who:'NARRATOR',d:6,  en:'So he stops walking — and lets the walking come to him. The shop is born.',ko:'그래서 그는 걷기를 멈추고, 손님이 걸어오게 합니다. 상점의 탄생입니다.'},
+      {who:'NARRATOR',d:6,  en:'A roof, a sign, a queue — location now does the finding.',ko:'지붕, 간판, 대기줄 — 이제 \'장소\'가 손님을 찾아줍니다.'},
+      {who:'CUSTOMER',d:6,  en:'The line is long… but at least we know where to find him.',ko:'줄은 길지만… 이제 어디로 가면 되는지는 알죠.'},
+      {who:'NARRATOR',d:6.5,en:'Forty sales a day instead of three. But only for those who can make the trip.',ko:'하루 3건이 40건으로. 그러나 상점까지 올 수 있는 사람들만의 이야기입니다.'},
+      {who:'NARRATOR',d:7.5,en:'Bottleneck № 2 — distance. Faraway demand stays invisible.',ko:'병목 №2 — 거리. 먼 곳의 수요는 여전히 보이지 않습니다.'}]},
+  3:{score:35,render:'2D + 3D HYBRID',throughput:'350 /day',coverage:'5 districts',human:'80%',
+     tech:{en:'Routed couriers · 3D overlay',ko:'배달 경로 시뮬레이션 · 3D 오버레이'},
+     title:{en:'The Delivery Network',ko:'배달망의 탄생'},
+     short:{en:'The Delivery Network',ko:'배달망의 탄생'},
+     sub:{en:'Goods travel without the founder',ko:'창업자 없이 이동하는 상품'},
+     desc:{en:'Hired couriers carry orders from the shop to every doorstep along fixed routes. A warehouse concentrates inventory; delivery radiates.',
+           ko:'고용된 배달원들이 정해진 경로를 따라 상점에서 각 집 문 앞까지 상품을 나릅니다. 창고에 재고가 모이고, 배달이 사방으로 뻗습니다.'},
+     why:{en:'Distant customers still can\'t come. So the goods must travel — without the founder carrying them.',
+          ko:'먼 곳의 손님은 여전히 올 수 없습니다. 그렇다면 상품이 스스로 이동해야 합니다 — 창업자가 나르지 않아도.'},
+     captions:[
+      {who:'NARRATOR',d:6.5,en:'If customers cannot come, the goods must go — carried by hired hands, along fixed routes.',ko:'손님이 올 수 없다면 상품이 가야 합니다 — 고용된 일손이, 정해진 경로를 따라.'},
+      {who:'NARRATOR',d:7,  en:'Follow one order: packed at the shop… carried down a route… handed to a doorstep.',ko:'주문 하나를 따라가 보세요. 상점에서 포장되고… 배달로를 따라… 문 앞에 전달됩니다.'},
+      {who:'NARRATOR',d:6.5,en:'A warehouse rises. Inventory concentrates; delivery routes radiate.',ko:'창고가 세워집니다. 재고는 한곳에 모이고, 배달망은 사방으로 뻗어나갑니다.'},
+      {who:'NARRATOR',d:6,  en:'The founder no longer carries anything. The system does.',ko:'이제 창업자는 아무것도 나르지 않습니다. 시스템이 대신합니다.'},
+      {who:'NARRATOR',d:7.5,en:'Bottleneck № 3 — coordination. Who hears every order?',ko:'병목 №3 — 조율. 그 많은 주문은 대체 누가 다 듣고 있죠?'}]},
+  4:{score:55,render:'2D/3D 5:5 HYBRID',throughput:'2.4k /day',coverage:'nationwide',human:'60%',
+     tech:{en:'Order pipeline · projectile pool',ko:'주문 파이프라인 · 발사체 풀링'},
+     title:{en:'The Order Line',ko:'콜센터와 출고장'},
+     short:{en:'The Order Line',ko:'콜센터와 출고장'},
+     sub:{en:'Intake and dispatch become one machine',ko:'주문 접수와 출고가 하나의 기계로'},
+     desc:{en:'The telephone lets anyone order from anywhere. Agents catch the incoming storm; every handled order flows out the other side as a dispatched crate.',
+           ko:'전화 덕분에 누구나 어디서든 주문할 수 있게 됩니다. 상담원들이 쏟아지는 주문을 받아내고, 처리된 주문은 반대편에서 출고 상자가 되어 흘러나갑니다.'},
+     why:{en:'Mail and telephone let anyone order from anywhere. Hearing them all becomes the new problem.',
+          ko:'우편과 전화로 누구나 어디서든 주문할 수 있게 되자, \'그 모든 주문을 듣는 것\'이 새로운 문제가 됩니다.'},
+     captions:[
+      {who:'NARRATOR',d:6,  en:'The telephone answers the coordination problem: one room where every distant voice can land.',ko:'전화가 조율의 문제에 답합니다. 멀리서 오는 모든 목소리가 도착하는 하나의 방.'},
+      {who:'NARRATOR',d:7,  en:'Each shuriken is an incoming order. Agents catch them — one pair of ears at a time.',ko:'수리검 하나하나가 걸려오는 주문입니다. 상담원들이 받아냅니다 — 한 번에 한 귀씩.'},
+      {who:'NARRATOR',d:6.5,en:'Watch the other side: every handled order becomes a crate, dispatched to the couriers.',ko:'반대편을 보세요. 처리된 주문은 상자가 되어 배송 기사에게 전달됩니다.'},
+      {who:'NARRATOR',d:6.5,en:'Intake and delivery fuse into one pipeline — the ancestor of modern fulfillment.',ko:'주문 접수와 배송이 하나의 파이프라인으로 — 현대적 풀필먼트의 원형입니다.'},
+      {who:'NARRATOR',d:7.5,en:'Bottleneck № 4 — headcount. The queue grows faster than the payroll.',ko:'병목 №4 — 인력. 대기열은 채용 속도보다 빠르게 자랍니다.'}]},
+  5:{score:80,render:'FULL WEBGL',throughput:'180k /day',coverage:'global',human:'25%',
+     tech:{en:'InstancedMesh city · GPU particles',ko:'InstancedMesh 도시 · GPU 파티클'},
+     title:{en:'The Online Highway',ko:'온라인 하이웨이'},
+     short:{en:'The Online Highway',ko:'온라인 하이웨이'},
+     sub:{en:'The storefront becomes a screen',ko:'화면이 된 상점'},
+     desc:{en:'Catalogs became websites; websites became platforms. The merchant\'s beacon now serves the planet, and parcels stream from his hub along digital highways.',
+           ko:'카탈로그는 웹사이트가, 웹사이트는 플랫폼이 됩니다. 상인의 등대는 이제 전 지구를 상대하고, 그의 허브에서 소포들이 디지털 하이웨이를 따라 쏟아져 나갑니다.'},
+     why:{en:'The internet dissolves distance itself. The storefront becomes a screen in every pocket.',
+          ko:'인터넷이 거리 자체를 지워버립니다. 상점은 모두의 주머니 속 화면이 됩니다.'},
+     captions:[
+      {who:'NARRATOR',d:7,  en:'Then the storefront leaves the physical world. Catalogs become websites; websites become platforms.',ko:'그리고 상점이 물리 세계를 떠납니다. 카탈로그는 웹사이트가, 웹사이트는 플랫폼이 됩니다.'},
+      {who:'NARRATOR',d:6.5,en:'Amazon. Alibaba. Infinite shelf space, one screen away from everyone alive.',ko:'아마존, 알리바바 — 무한한 진열대가 살아있는 모든 사람의 화면 하나 거리에.'},
+      {who:'NARRATOR',d:6.5,en:'Our merchant still stands at the center — his beacon now serves the whole planet.',ko:'우리의 상인은 여전히 중심에 서 있습니다. 그의 등대는 이제 전 지구를 상대합니다.'},
+      {who:'NARRATOR',d:6.5,en:'Every golden light leaving his hub is a parcel; every blue one, a customer. Commerce as pure data.',ko:'허브에서 나가는 금빛 하나하나가 소포이고, 푸른 빛 하나하나가 고객입니다. 데이터가 된 상거래.'},
+      {who:'NARRATOR',d:8,  en:'Bottleneck № 5 — attention. Infinite shelves… but who chooses what you see?',ko:'병목 №5 — 주의력. 진열대는 무한한데, 무엇을 보여줄지는 누가 정하나요?'}]},
+  6:{score:99,render:'WEBGL NEON',throughput:'∞ (9.9M /s)',coverage:'omnipresent',human:'2%',
+     tech:{en:'Predictive delivery engine',ko:'예측 배송 엔진'},
+     title:{en:'The Agentic AI Metropolis',ko:'에이전틱 AI 메트로폴리스'},
+     short:{en:'The Agentic AI Metropolis',ko:'에이전틱 AI 메트로폴리스'},
+     sub:{en:'Prediction precedes demand',ko:'수요보다 앞서는 예측'},
+     desc:{en:'Customers merely wish; the AI hears intent, mass-produces the essentials to perfection — then crafts what mass production never could: goods tuned to one person\'s taste.',
+           ko:'고객은 그저 바라기만 합니다. AI는 의도를 듣고 필수품을 완벽하게 대량생산합니다 — 그리고 대량생산이 결코 못 했던 것, 한 사람의 취향에 맞춘 상품을 빚어냅니다.'},
+     why:{en:'Intelligence itself joins the supply chain. Prediction replaces the order form.',
+          ko:'지능이 직접 공급망에 합류합니다. 예측이 주문서를 대체합니다.'},
+     captions:[
+      {who:'NARRATOR',d:6.5,en:'Now intelligence itself joins the supply chain. Watch — a customer merely wishes.',ko:'이제 지능이 직접 공급망에 합류합니다. 보세요 — 고객은 그저 바라기만 합니다.'},
+      {who:'NARRATOR',d:7,  en:'The AI hears intent before it becomes an order. The essentials arrive: perfect, abundant, nearly free.',ko:'AI는 주문이 되기도 전의 \'의도\'를 듣습니다. 필수품이 도착합니다 — 완벽하고, 풍족하고, 거의 공짜로.'},
+      {who:'NARRATOR',d:7.5,en:'So it crafts what mass production never could: goods tuned to one person\'s taste, story, identity.',ko:'그래서 AI는 대량생산이 결코 못 했던 것을 만듭니다 — 한 사람의 취향, 이야기, 정체성에 맞춘 상품.'},
+      {who:'NARRATOR',d:6,  en:'The old bottlenecks are gone. What remains is the question…',ko:'오래된 병목들은 사라졌습니다. 남은 것은 질문 하나…'}]}
+};
+const FINAL={
+  kicker:{en:'THE QUESTION THIS STORY ASKS',ko:'이 이야기가 던지는 질문'},
+  title:{en:'When every essential is solved, demand becomes personal.',
+         ko:'필수적인 모든 것이 해결되는 순간, 수요는 \'개인\'을 향합니다.'},
+  sub:{en:'Art, taste, story, identity — the things no mass production could ever answer. What will your customers want next… and will you be the one who answers?',
+       ko:'예술, 취향, 이야기, 정체성 — 대량생산이 결코 답할 수 없었던 것들. 당신의 고객은 다음에 무엇을 원하게 될까요… 그리고 그 답을 만드는 사람이 당신일까요?'},
+  replay:{en:'⟲ Replay the story',ko:'⟲ 처음부터 다시 보기'}
+};
+const UI={
+  chapters:{en:'CHAPTERS',ko:'챕터'},
+  gauge:{en:'SCALABILITY INDEX',ko:'확장성 지수'},
+  underhood:{en:'Under the hood',ko:'엔지니어링 상세'},
+  dashSub:{en:'An Interactive Parable of Commerce',ko:'상업의 진화에 관한 인터랙티브 우화'}
+};
+
+/* =====================================================================
+   ██ 3. ASSET LOADING & PROCEDURAL FALLBACKS
+===================================================================== */
+const Loaded={img:{},obj:{},bind:[]};
+function loadImage(name,path){
+  return new Promise(res=>{
+    if(!path){Loaded.bind.push({name,ok:false});res(null);return}
+    const img=new Image();
+    img.onload =()=>{Loaded.img[name]={img,ok:true}; Loaded.bind.push({name,ok:true}); res(img)};
+    img.onerror=()=>{Loaded.img[name]={img:null,ok:false}; Loaded.bind.push({name,ok:false}); res(null)};
+    img.src=path;
+  });
+}
+function loadObjFile(name,path){
+  return new Promise(res=>{
+    if(!path||!window.THREE||!THREE.OBJLoader){Loaded.bind.push({name,ok:false});res(null);return}
+    try{
+      new THREE.OBJLoader().load(path,
+        o=>{Loaded.obj[name]=o;Loaded.bind.push({name,ok:true});res(o)},undefined,
+        ()=>{Loaded.bind.push({name,ok:false});res(null)});
+    }catch(e){Loaded.bind.push({name,ok:false});res(null)}
+  });
+}
+async function preloadAll(){
+  const jobs=[],R=TOTAL_ASSET_REGISTRY;
+  for(const map of Object.values(R.pixel_characters)) for(const[k,p]of Object.entries(map)) jobs.push(loadImage(k,p));
+  for(const map of Object.values(R.pixel_items))      for(const[k,p]of Object.entries(map)) jobs.push(loadImage(k,p));
+  for(const[k,p]of Object.entries(R.pixel_tiles))     jobs.push(loadImage('tiles_'+k,p));
+  for(const[k,p]of Object.entries(R.lowpoly_3d.buildings)) jobs.push(loadObjFile(k,p));
+  for(const[k,p]of Object.entries(R.lowpoly_3d.infra))     jobs.push(loadObjFile(k,p));
+  await Promise.all(jobs);
+}
+const procTileCache={};
+function procTile(kind){
+  if(procTileCache[kind])return procTileCache[kind];
+  const c=document.createElement('canvas');c.width=c.height=16;
+  const g=c.getContext('2d');
+  const P={grass:['#123524','#1b4a30','#0e2b1d'],dirt:['#3a2b1c','#4a3826','#2c2015'],
+    sand:['#4a3b22','#5c4a2c','#3a2e1a'],darkft:['#141a2c','#1a2238','#0e1422'],
+    tree:['#0d3320','#155232','#0a2416'],sakura:['#4a2138','#63304d','#331626'],
+    rock:['#2a3040','#38405a','#1e2330'],house:['#3d2b52','#54407a','#2a1d38'],
+    dojo:['#4a2a2a','#663a3a','#331d1d'],torii:['#5a1f2e','#7c2b40','#3d1520']}[kind]||['#182038','#223050','#101828'];
+  const gr=g.createLinearGradient(0,0,16,16);gr.addColorStop(0,P[1]);gr.addColorStop(1,P[2]);
+  g.fillStyle=gr;g.fillRect(0,0,16,16);
+  g.fillStyle=P[0];for(let i=0;i<10;i++)g.fillRect((i*7)%16,(i*5)%16,2,2);
+  g.strokeStyle='rgba(0,229,255,.12)';g.strokeRect(.5,.5,15,15);
+  procTileCache[kind]=c;return c;
+}
+function procBuildingTexture(baseHex,litRatio){
+  const c=document.createElement('canvas');c.width=64;c.height=128;
+  const g=c.getContext('2d');const col='#'+baseHex.toString(16).padStart(6,'0');
+  g.fillStyle='#0a0f1e';g.fillRect(0,0,64,128);
+  for(let y=6;y<122;y+=12)for(let x=6;x<58;x+=12){
+    const lit=Math.random()<litRatio;
+    g.fillStyle=lit?col:'rgba(255,255,255,.05)';
+    if(lit){g.shadowColor=col;g.shadowBlur=6}else g.shadowBlur=0;
+    g.fillRect(x,y,7,8);
+  }
+  const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;return t;
+}
+
+/* =====================================================================
+   ██ 4. AUDIO
+===================================================================== */
+const AudioMgr={
+  unlocked:false,muted:true,tracks:{},sfx:{},current:null,
+  init(){
+    const A=TOTAL_ASSET_REGISTRY.audio;
+    for(const k of['bgm_past','bgm_future']){
+      const a=new Audio();a.src=A[k];a.loop=true;a.volume=0;a.preload='auto';
+      a.onerror=()=>Loaded.bind.push({name:k,ok:false});this.tracks[k]=a;
+    }
+    for(const k of['sfx_click','sfx_spawn','sfx_throw','sfx_coin']){
+      const a=new Audio();a.src=A[k];a.volume=.45;a.preload='auto';
+      a.onerror=()=>Loaded.bind.push({name:k,ok:false});this.sfx[k]=a;
+    }
+  },
+  unlock(){this.unlocked=true;if(!this.muted)this.playBgm(this.current||'bgm_past')},
+  toggle(){
+    this.muted=!this.muted;
+    document.getElementById('muteBtn').classList.toggle('on',!this.muted);
+    if(this.muted)for(const t of Object.values(this.tracks))t.pause();
+    else if(this.unlocked)this.playBgm(this.current||'bgm_past');
+  },
+  playBgm(key){
+    this.current=key;
+    if(!this.unlocked||this.muted)return;
+    for(const[k,t]of Object.entries(this.tracks)){
+      if(k===key){t.volume=.3;t.play().catch(()=>{})}
+      else{t.pause();t.currentTime=0}
+    }
+  },
+  play(key){
+    if(!this.unlocked||this.muted)return;
+    const s=this.sfx[key];if(!s)return;
+    try{s.currentTime=0;s.play().catch(()=>{})}catch(e){}
+  }
+};
+
+/* =====================================================================
+   ██ 5. 2D PIXEL ENGINE
+===================================================================== */
+const viewport=document.getElementById('viewport');
+const canvas2d=document.getElementById('canvas2d');
+const ctx=canvas2d.getContext('2d');
+function resize2d(){
+  const r=viewport.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
+  canvas2d.width=r.width*dpr;canvas2d.height=r.height*dpr;
+  canvas2d.style.width=r.width+'px';canvas2d.style.height=r.height+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.imageSmoothingEnabled=false;
+}
+function drawActor(key,dir,frame,x,y,size,fbColor){
+  const a=Loaded.img[key];
+  if(a&&a.ok){
+    const fw=a.img.width/4,fh=a.img.height/4;
+    ctx.drawImage(a.img,dir*fw,(frame%4)*fh,fw,fh,x-size/2,y-size,size,size);
+  }else{
+    ctx.save();ctx.shadowColor=fbColor||'#00e5ff';ctx.shadowBlur=10;
+    ctx.fillStyle=fbColor||'#00e5ff';ctx.fillRect(x-size/2,y-size,size,size);
+    ctx.fillStyle='rgba(0,0,0,.4)';
+    ctx.fillRect(x-size/4,y-size*.72,size/8,size/8);ctx.fillRect(x+size/8,y-size*.72,size/8,size/8);
+    ctx.restore();
+  }
+}
+function drawStrip(key,frame,x,y,size,fbColor){
+  const a=Loaded.img[key];
+  if(a&&a.ok){
+    const fh=a.img.height,n=Math.max(1,Math.round(a.img.width/62)),fw=a.img.width/n,s=size*(fw/fh);
+    ctx.drawImage(a.img,(frame%n)*fw,0,fw,fh,x-s/2,y-size,s,size);
+  }else drawActor(key,0,frame,x,y,size,fbColor);
+}
+function drawItem(key,x,y,size,fbColor,rot){
+  const a=Loaded.img[key];
+  ctx.save();ctx.translate(x,y);if(rot)ctx.rotate(rot);
+  if(a&&a.ok){const r=a.img.width/a.img.height;ctx.drawImage(a.img,-size*r/2,-size/2,size*r,size)}
+  else{ctx.shadowColor=fbColor||'#ffd166';ctx.shadowBlur=8;ctx.fillStyle=fbColor||'#ffd166';
+    ctx.fillRect(-size/2,-size/2,size,size)}
+  ctx.restore();
+}
+function drawTile(kind,x,y,w,h){
+  const def=TILE_RECTS[kind],atlas=def&&Loaded.img['tiles_'+def.atlas];
+  if(def&&atlas&&atlas.ok){const[sx,sy,sw,sh]=def.rect;ctx.drawImage(atlas.img,sx,sy,sw,sh,x,y,w,h)}
+  else ctx.drawImage(procTile(kind),x,y,w,h);
+}
+function fillTiles(kind,x0,y0,x1,y1,t){for(let y=y0;y<y1;y+=t)for(let x=x0;x<x1;x+=t)drawTile(kind,x,y,t,t)}
+function hash(n){const s=Math.sin(n*127.1)*43758.5453;return s-Math.floor(s)}
+function dirOf(dx,dy){return Math.abs(dx)>Math.abs(dy)?(dx>0?3:2):(dy>0?0:1)}
+function dashedLine(x0,y0,x1,y1,color){
+  ctx.save();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([7,9]);
+  ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();ctx.restore();
+}
+
+/* ---------- caption / toast / hero systems ---------- */
+const Cap={lines:[],idx:-1,t:0,dur:0,active:false};
+const capBox=document.getElementById('captionBox');
+function startCaptions(n){
+  Cap.lines=CHAPTERS[n].captions||[];Cap.idx=-1;Cap.t=0;Cap.active=Cap.lines.length>0;
+  if(Cap.active)nextCaption();else capBox.classList.remove('visible');
+}
+function nextCaption(){
+  Cap.idx++;
+  if(Cap.idx>=Cap.lines.length){capBox.classList.remove('visible');Cap.active=false;onCaptionsDone();return}
+  renderCaption();Cap.t=0;Cap.dur=Cap.lines[Cap.idx].d||6;
+}
+function renderCaption(){
+  if(Cap.idx<0||Cap.idx>=Cap.lines.length)return;
+  const ln=Cap.lines[Cap.idx];
+  document.getElementById('captionWho').textContent=ln.who||'';
+  document.getElementById('captionText').textContent=L(ln);
+  capBox.classList.add('visible');
+}
+function tickCaptions(dt){if(Cap.active){Cap.t+=dt;if(Cap.t>=Cap.dur)nextCaption()}}
+
+let orderNo=1040;
+function toast(text){
+  const area=document.getElementById('toastArea');
+  const d=document.createElement('div');d.textContent=text;area.appendChild(d);
+  setTimeout(()=>d.remove(),5000);
+  while(area.children.length>4)area.firstChild.remove();
+}
+
+const hero=document.getElementById('hero');
+let heroTimer=null;
+function playHero(n){
+  const d=CHAPTERS[n];
+  document.getElementById('heroKicker').textContent=(LANG==='en'?'THE WORLD CHANGES · CHAPTER 0':'세상이 바뀝니다 · 챕터 0')+n;
+  document.getElementById('heroWhy').textContent=L(d.why);
+  document.getElementById('heroTitle').textContent=L(d.title);
+  const bar=document.getElementById('heroBar');
+  bar.style.transition='none';bar.style.width='0';
+  hero.classList.add('show');
+  requestAnimationFrame(()=>{bar.style.transition='width 7.5s linear';bar.style.width='100%'});
+  clearTimeout(heroTimer);
+  heroTimer=setTimeout(()=>hero.classList.remove('show'),7800);
+}
+
+/* =====================================================================
+   ██ 6. SCENES 1–4 (2D)
+===================================================================== */
+/* ---- Chapter 1: wandering merchant visits scattered customers ---- */
+const S1={t:0,phase:'walk',x:0,y:0,target:0,stamina:1,served:0,night:0,item:null,itemT:0};
+const S1_SPOTS={home:[.13,.36],cust:[[.74,.30,'monster_slime'],[.84,.72,'monster_goblin'],[.30,.82,'monster_orc']]};
+function s1Init(w,h){
+  S1.x=S1_SPOTS.home[0]*w;S1.y=S1_SPOTS.home[1]*h;
+  S1.phase='walk';S1.target=0;S1.stamina=1;S1.served=0;S1.t=0;S1.night=0;S1.item=null;
+}
+function s1Tick(dt,w,h){
+  const T=48;
+  fillTiles('grass',0,0,w,h,T);
+  const spots=[S1_SPOTS.home,...S1_SPOTS.cust].map(s=>[s[0]*w,s[1]*h]);
+  // decor trees, avoiding spots
+  for(let i=0;i<22;i++){
+    const rx=hash(i)*w,ry=hash(i+50)*h;
+    if(spots.some(s=>Math.abs(rx-s[0])<90&&Math.abs(ry-s[1])<90))continue;
+    const kind=hash(i+99)<.72?'tree':(hash(i+7)<.5?'sakura':'rock');
+    const s=T*(1.5+hash(i+31));
+    drawTile(kind,rx-s/2,ry-s,s,s);
+  }
+  // dirt pads under home + customers
+  for(const[px,py]of spots)fillTiles('dirt',px-T*1.5,py-T*.8,px+T*1.5,py+T*.7,T);
+  // home hut
+  const[hx,hy]=spots[0];
+  drawTile('house',hx-T*1.6,hy-T*3,T*3.2,T*2.8);
+  ctx.font='700 10px Poppins';ctx.fillStyle='rgba(234,243,255,.6)';ctx.textAlign='center';
+  ctx.fillText('HOME',hx,hy-T*3.1);ctx.textAlign='left';
+
+  S1.t+=dt;
+  // customers idle
+  S1_SPOTS.cust.forEach((c,i)=>{
+    const cx=c[0]*w,cy=c[1]*h;
+    drawActor(c[2],0,Math.floor(S1.t*2.5+i)%4,cx,cy,54,'#ff3d81');
+  });
+
+  const tgt=S1.phase==='home'?spots[0]:spots[1+S1.target];
+  if(S1.phase==='walk'||S1.phase==='home'){
+    // dashed route to current destination
+    dashedLine(S1.x,S1.y-14,tgt[0],tgt[1]-14,'rgba(255,209,102,.4)');
+    const dx=tgt[0]-S1.x,dy=tgt[1]-S1.y,dist=Math.hypot(dx,dy),sp=w*.085;
+    if(dist>6){
+      S1.x+=dx/dist*sp*dt;S1.y+=dy/dist*sp*dt;
+      drawActor('ninja_low',dirOf(dx,dy),Math.floor(S1.t*8)%4,S1.x,S1.y,52,'#00e5ff');
+    }else if(S1.phase==='walk'){
+      S1.phase='deliver';S1.itemT=0;S1.item=['potion','scroll','potion'][S1.target];
+      AudioMgr.play('sfx_throw');
+    }else{ S1.phase='rest';S1.itemT=0; }
+  }
+  if(S1.phase==='deliver'){
+    S1.itemT+=dt;
+    drawActor('ninja_low',3,0,S1.x,S1.y,52,'#00e5ff');
+    const c=S1_SPOTS.cust[S1.target],cx=c[0]*w,cy=c[1]*h;
+    const p=Math.min(1,S1.itemT/.6);
+    drawItem(S1.item,S1.x+(cx-S1.x)*p,S1.y-30-Math.sin(p*Math.PI)*40,20,'#ffd166',p*6);
+    if(p>=1){
+      S1.served++;S1.stamina=Math.max(0,S1.stamina-.31);AudioMgr.play('sfx_coin');
+      S1.target++;
+      S1.phase=(S1.target>=3)?'home':'walk';
+    }
+  }
+  if(S1.phase==='rest'){
+    S1.itemT+=dt;
+    drawActor('ninja_low',0,0,S1.x,S1.y,52,'#00e5ff');
+    S1.night=Math.min(.6,S1.night+dt*.5);
+    if(S1.itemT>3){S1.night=Math.max(0,S1.night);S1.phase='wake'}
+  }
+  if(S1.phase==='wake'){
+    S1.night-=dt*.6;
+    drawActor('ninja_low',0,0,S1.x,S1.y,52,'#00e5ff');
+    if(S1.night<=0){S1.night=0;S1.stamina=1;S1.target=0;S1.phase='walk'}
+  }
+  if(S1.night>0){
+    ctx.fillStyle='rgba(4,8,26,'+S1.night+')';ctx.fillRect(0,0,w,h);
+    ctx.font='700 13px Poppins';ctx.fillStyle='rgba(234,243,255,.8)';ctx.textAlign='center';
+    ctx.fillText(LANG==='en'?'NIGHT — RESTING TO RESET THE SUPPLY CHAIN':'밤 — 공급망(=몸)을 회복하는 중',w/2,h*.14);
+    ctx.textAlign='left';
+  }
+  // stamina + counter HUD
+  const bx=S1.x-28,by=S1.y-70;
+  ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(bx,by,56,7);
+  ctx.fillStyle=S1.stamina>.35?'#00e5ff':'#ff3d81';ctx.fillRect(bx+1,by+1,54*S1.stamina,5);
+  ctx.font='600 10px Poppins';ctx.fillStyle='rgba(234,243,255,.75)';
+  ctx.fillText('STAMINA',bx,by-4);
+  ctx.font='600 11px Poppins';
+  ctx.fillText((LANG==='en'?'SERVED TODAY: ':'오늘 판매: ')+S1.served+' / 3',22,h-20);
+}
+
+/* ---- Chapter 2: fixed shop & queue ---- */
+const S2={t:0,queue:[],sold:0,coinFx:[]};
+const S2_POOL=['monster_slime','monster_goblin','monster_orc','monster_boss'];
+function s2Init(w,h){
+  S2.t=0;S2.sold=0;S2.coinFx=[];S2.queue=[];
+  for(let i=0;i<5;i++)S2.queue.push({kind:S2_POOL[i%4],x:w+i*110,state:'approach',t:0});
+}
+function s2Tick(dt,w,h){
+  const T=48;
+  fillTiles('grass',0,0,w,h,T);
+  fillTiles('sand',0,h*.52,w,h,T);
+  const hw=T*7,hh=T*5.6,hx=w/2-hw/2,hy=h*.52-hh+10;
+  drawTile('tree',hx-T*3,hy+hh-T*3.4,T*3,T*3);
+  drawTile('tree',hx+hw+T*.3,hy+hh-T*3.4,T*3,T*3);
+  drawTile('house',hx,hy,hw,hh);
+  drawTile('torii',w*.82,h*.52-T*1.6,T*2.1,T*1.6);
+  drawItem('katana',hx+hw-T*.7,hy+hh*.6,26,'#ffd166',-.6);
+  ctx.save();
+  ctx.font='700 15px Poppins';ctx.textAlign='center';
+  ctx.fillStyle='rgba(4,8,16,.72)';ctx.fillRect(w/2-100,hy-26,200,24);
+  ctx.strokeStyle='rgba(0,229,255,.5)';ctx.strokeRect(w/2-100,hy-26,200,24);
+  ctx.fillStyle='#00e5ff';ctx.shadowColor='#00e5ff';ctx.shadowBlur=10;
+  ctx.fillText('NINJA GOODS · EST. 1604',w/2,hy-9);
+  ctx.restore();
+
+  S2.t+=dt;
+  const doorY=h*.52+T*1.1,counterX=w/2+hw*.28;
+  drawActor('ninja_low',0,Math.floor(S2.t*2)%4,w/2,doorY-6,56,'#00e5ff');
+
+  let slot=0;
+  for(const c of S2.queue){
+    c.t+=dt;
+    const targetX=counterX+70+slot*86;
+    if(c.state==='approach'){c.x-=dt*120;if(c.x<=targetX){c.x=targetX;c.state=slot===0?'buy':'wait';c.t=0}}
+    else if(c.state==='wait'){if(slot===0){c.state='buy';c.t=0}}
+    else if(c.state==='buy'){
+      if(c.t>1.4){c.state='leave';S2.sold++;AudioMgr.play('sfx_coin');
+        S2.coinFx.push({x:c.x,y:doorY-70,t:0})}
+    }else if(c.state==='leave'){
+      c.x+=dt*160;
+      if(c.x>w+80){c.x=w+120+Math.random()*160;c.state='approach';c.kind=S2_POOL[Math.floor(Math.random()*4)]}
+    }
+    const fr=Math.floor(c.t*6)%4;
+    if(c.kind==='monster_boss')drawStrip('monster_boss',fr,c.x,doorY+26,78,'#ff3d81');
+    else drawActor(c.kind,c.state==='leave'?3:2,fr,c.x,doorY+10,52,'#ff3d81');
+    if(c.state!=='leave')slot++;
+  }
+  for(const f of S2.coinFx){f.t+=dt;f.y-=dt*46;
+    ctx.globalAlpha=Math.max(0,1-f.t);drawItem('coin',f.x,f.y,18,'#ffd166');ctx.globalAlpha=1}
+  S2.coinFx=S2.coinFx.filter(f=>f.t<1);
+  ctx.font='600 11px Poppins';ctx.fillStyle='rgba(234,243,255,.75)';
+  ctx.fillText((LANG==='en'?'UNITS SOLD: ':'판매량: ')+S2.sold,22,h-20);
+}
+
+/* ---- Chapter 3: routed delivery to customer houses ---- */
+const S3={t:0,runners:[],delivered:0,houses:[]};
+function s3Init(w,h){
+  S3.t=0;S3.delivered=0;
+  S3.houses=[[.12,.24],[.88,.24],[.90,.80],[.10,.76],[.62,.90]].map((f,i)=>({
+    fx:f[0],fy:f[1],kind:['monster_slime','monster_goblin','monster_orc','monster_slime','monster_goblin'][i],bounce:0}));
+  S3.runners=[];
+  for(let i=0;i<6;i++)S3.runners.push({key:i%2?'ninja_clone1':'ninja_clone2',
+    house:i%5,state:'load',t:-i*.7,x:0,y:0});
+}
+function s3Tick(dt,w,h){
+  const T=48;
+  fillTiles('grass',0,0,w,h,T);
+  const shopX=w/2,shopY=h*.44;
+  const hw=T*6,hh=T*5.4,hx=shopX-hw/2,hy=shopY-hh+16;
+  // route lines shop → houses
+  for(const hs of S3.houses)dashedLine(shopX,shopY,hs.fx*w,hs.fy*h,'rgba(0,229,255,.22)');
+  // customer houses + waiting monsters
+  for(const hs of S3.houses){
+    const px=hs.fx*w,py=hs.fy*h;
+    fillTiles('dirt',px-T,py-T*.6,px+T,py+T*.5,T);
+    drawTile('house',px-T*1.2,py-T*2.4,T*2.4,T*2.1);
+    hs.bounce=Math.max(0,hs.bounce-dt*2);
+    drawActor(hs.kind,0,Math.floor(S3.t*2.5)%4,px+T*1.1,py-Math.sin(hs.bounce*Math.PI)*10,44,'#ff3d81');
+  }
+  // HQ shop
+  drawTile('dojo',hx,hy,hw,hh);
+  drawItem('chest',hx+hw+T*.5,shopY-T*.4,26,'#ffd166');
+  drawItem('chest',hx+hw+T*.5,shopY+T*.3,26,'#ffd166');
+  ctx.save();
+  ctx.font='700 13px Poppins';ctx.textAlign='center';
+  ctx.fillStyle='rgba(4,8,16,.72)';ctx.fillRect(shopX-118,hy-24,236,22);
+  ctx.strokeStyle='rgba(138,92,255,.55)';ctx.strokeRect(shopX-118,hy-24,236,22);
+  ctx.fillStyle='#8a5cff';ctx.shadowColor='#8a5cff';ctx.shadowBlur=10;
+  ctx.fillText(LANG==='en'?'NINJA GOODS · DELIVERY HQ':'닌자 상점 · 배달 본부',shopX,hy-8);
+  ctx.restore();
+  S3.t+=dt;
+  drawActor('ninja_master',0,Math.floor(S3.t*2)%4,shopX,shopY+10,58,'#ff3d81');
+
+  for(const r of S3.runners){
+    r.t+=dt;if(r.t<0)continue;
+    const hs=S3.houses[r.house],tx=hs.fx*w,ty=hs.fy*h;
+    const dur=Math.hypot(tx-shopX,ty-shopY)/(w*.13);
+    if(r.state==='load'){
+      r.x=shopX-26;r.y=shopY+16;
+      drawActor(r.key,0,Math.floor(r.t*6)%4,r.x,r.y,44,'#00e5ff');
+      drawItem('chest',r.x,r.y-50,18,'#ffd166');
+      if(r.t>.7){r.state='go';r.t=0}
+    }else if(r.state==='go'){
+      const p=Math.min(1,r.t/dur);
+      r.x=shopX+(tx-shopX)*p;r.y=shopY+(ty-shopY)*p;
+      drawActor(r.key,dirOf(tx-shopX,ty-shopY),Math.floor(r.t*9)%4,r.x,r.y,44,'#00e5ff');
+      drawItem('chest',r.x,r.y-50,18,'#ffd166');
+      if(p>=1){r.state='drop';r.t=0}
+    }else if(r.state==='drop'){
+      drawActor(r.key,0,0,r.x,r.y,44,'#00e5ff');
+      if(r.t<.5)drawItem('chest',r.x+(r.t/.5)*30,r.y-50+(r.t/.5)*26,18,'#ffd166');
+      if(r.t>.9){
+        r.state='back';r.t=0;S3.delivered++;hs.bounce=1;AudioMgr.play('sfx_coin');
+      }
+    }else if(r.state==='back'){
+      const p=Math.min(1,r.t/dur);
+      r.x=tx+(shopX-tx)*p;r.y=ty+(shopY-ty)*p;
+      drawActor(r.key,dirOf(shopX-tx,shopY-ty),Math.floor(r.t*9)%4,r.x,r.y,44,'#8fb3ff');
+      if(p>=1){r.state='load';r.t=0;r.house=(r.house+2)%5}
+    }
+  }
+  ctx.font='600 11px Poppins';ctx.fillStyle='rgba(234,243,255,.75)';
+  ctx.fillText((LANG==='en'?'DELIVERED TO DOORSTEPS: ':'문 앞 배달 완료: ')+S3.delivered,22,h-20);
+}
+
+/* ---- Chapter 4: order intake + dispatch pipeline ---- */
+const S4={t:0,rain:[],crates:[],inbound:0,dispatched:0};
+function s4Init(w,h){
+  S4.t=0;S4.rain=[];S4.crates=[];S4.inbound=0;S4.dispatched=0;
+  for(let i=0;i<110;i++)S4.rain.push({live:false,t:0,dispatchedFlag:false});
+}
+function s4Tick(dt,w,h,ts){
+  const T=48,floorY=h*.46;
+  ctx.clearRect(0,0,w,floorY);
+  fillTiles('darkft',0,floorY,w,h,T);
+  S4.t+=dt;
+  const desks=[];
+  for(let r=0;r<2;r++)for(let ci=0;ci<4;ci++){
+    const dx=w*.13+ci*w*.14,dy=floorY+T*1.7+r*T*2.2;
+    desks.push({dx,dy});
+    ctx.fillStyle='#1a2338';ctx.fillRect(dx-34,dy-16,68,20);
+    ctx.strokeStyle='rgba(0,229,255,.25)';ctx.strokeRect(dx-34,dy-16,68,20);
+    const key=(r*4+ci)%3===0?'clerk_pixel':((r+ci)%2?'ninja_clone1':'ninja_clone2');
+    drawActor(key,0,Math.floor((S4.t*3+ci+r))%4,dx,dy-14,44,'#00e5ff');
+    ctx.strokeStyle='#00e5ff';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(dx,dy-40,12,Math.PI*1.15,Math.PI*1.85);ctx.stroke();ctx.lineWidth=1;
+  }
+  // dispatch bay (right side)
+  const bayX=w*.86,bayY=h*.78;
+  ctx.fillStyle='rgba(255,209,102,.08)';ctx.fillRect(bayX-70,bayY-64,150,120);
+  ctx.strokeStyle='rgba(255,209,102,.4)';ctx.strokeRect(bayX-70,bayY-64,150,120);
+  ctx.font='700 10px Poppins';ctx.fillStyle='#ffd166';ctx.textAlign='center';
+  ctx.fillText(LANG==='en'?'DISPATCH BAY':'출고장',bayX,bayY-70);ctx.textAlign='left';
+  drawActor('ninja_clone2',2,Math.floor(S4.t*3)%4,bayX+46,bayY+34,42,'#ffd166');
+
+  // incoming order shurikens
+  let budget=Math.random()<.8*Math.max(.3,ts)?2:0;
+  for(const p of S4.rain){
+    if(!p.live){
+      if(budget>0){
+        budget--;p.live=true;p.t=0;p.dispatchedFlag=false;
+        p.x0=w*.5+Math.random()*w*.55;p.y0=-30-Math.random()*h*.3;
+        const d=desks[Math.floor(Math.random()*desks.length)];
+        p.x1=d.dx+(Math.random()*80-40);p.y1=d.dy-26+Math.random()*26;
+        p.dur=.7+Math.random()*.7;p.key=Math.random()<.7?'shuriken':'kunai';
+        S4.inbound++;
+      }
+      continue;
+    }
+    p.t+=dt;
+    const q=Math.min(1,p.t/p.dur);
+    if(q>=1){
+      ctx.globalAlpha=Math.max(0,1-(p.t-p.dur)*1.4);
+      drawItem(p.key,p.x1,p.y1,15,'#ff3d81',p.t*4);
+      ctx.globalAlpha=1;
+      if(!p.dispatchedFlag&&p.t>p.dur+.3){
+        p.dispatchedFlag=true;
+        if(S4.crates.length<18)
+          S4.crates.push({x:p.x1,y:p.y1,x1:bayX,y1:bayY,t:0,dur:1.1,phase:'fly'});
+        else S4.dispatched++;   // still counted, just not drawn when the bay is saturated
+      }
+      if(p.t>p.dur+.8)p.live=false;
+    }else drawItem(p.key,p.x0+(p.x1-p.x0)*q,p.y0+(p.y1-p.y0)*(q*q),15,'#ff3d81',p.t*14);
+  }
+  // handled orders become crates flying to dispatch bay, then carried off-screen
+  for(const c of S4.crates){
+    c.t+=dt;
+    if(c.phase==='fly'){
+      const q=Math.min(1,c.t/c.dur);
+      const x=c.x+(c.x1-c.x)*q,y=c.y+(c.y1-c.y)*q-Math.sin(q*Math.PI)*46;
+      drawItem('chest',x,y,17,'#ffd166');
+      if(q>=1){c.phase='carry';c.t=0;c.x=c.x1;c.y=c.y1;S4.dispatched++;AudioMgr.play('sfx_coin')}
+    }else{
+      c.x+=dt*210;
+      drawActor('ninja_clone1',3,Math.floor(c.t*9)%4,c.x,c.y+30,40,'#ffd166');
+      drawItem('chest',c.x,c.y-18,16,'#ffd166');
+      if(c.x>w+50)c.phase='done';
+    }
+  }
+  S4.crates=S4.crates.filter(c=>c.phase!=='done');
+  // pipeline HUD
+  const backlog=Math.max(0,S4.inbound-S4.dispatched);
+  ctx.font='600 11px Poppins';ctx.fillStyle='rgba(234,243,255,.78)';
+  ctx.fillText((LANG==='en'?'ORDERS IN: ':'주문 접수: ')+S4.inbound
+    +'  →  '+(LANG==='en'?'DISPATCHED: ':'출고: ')+S4.dispatched,22,h-34);
+  const ratio=Math.min(1,backlog/80);
+  ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(22,h-26,180,8);
+  ctx.fillStyle=ratio>.6?'#ff3d81':'#ffd166';
+  if(ratio>.6){ctx.shadowColor='#ff3d81';ctx.shadowBlur=8}
+  ctx.fillRect(23,h-25,178*ratio,6);ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(127,146,184,.9)';
+  ctx.fillText(LANG==='en'?'BACKLOG PRESSURE':'적체 압력',210,h-19);
+}
+
+/* =====================================================================
+   ██ 7. THREE.JS — warehouse, tower, city, packets, parcels, AI cycle
+===================================================================== */
+const threeContainer=document.getElementById('threeContainer');
+let renderer,scene,camera;
+let g3,g4,gCity,gNeon;
+let packetSystems=[],cars=[],cityBuilt=false,towerBuilt=false,whBuilt=false;
+let rooftopPos=new THREE.Vector3(0,30,4);
+let heroSprite=null,heroSpriteTexes={},beamMesh=null,parcelPts=null;
+let aiCore=null,aiCoreLight=null,neonLights=[],customers6=[],bubbleSprite=null,giftSprite=null;
+
+function initThree(){
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  threeContainer.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(50,1,.1,2000);
+  scene.add(new THREE.AmbientLight(0x8fb3ff,.6));
+  const dl=new THREE.DirectionalLight(0x00e5ff,.8);dl.position.set(30,60,20);scene.add(dl);
+  g3=new THREE.Group();g4=new THREE.Group();gCity=new THREE.Group();gNeon=new THREE.Group();
+  g3.visible=g4.visible=gCity.visible=gNeon.visible=false;
+  scene.add(g3,g4,gCity,gNeon);
+  resizeThree();
+}
+function resizeThree(){
+  const r=viewport.getBoundingClientRect();
+  renderer.setSize(r.width,r.height);
+  camera.aspect=r.width/r.height;camera.updateProjectionMatrix();
+}
+function extractGeometry(o){let g=null;o.traverse(c=>{if(!g&&c.isMesh&&c.geometry)g=c.geometry});return g}
+function groundedClone(objGroup,color,tw,th,td,emissive){
+  const clone=objGroup.clone();
+  const mat=new THREE.MeshStandardMaterial({color,flatShading:true,roughness:.55,metalness:.25,
+    emissive:color,emissiveIntensity:emissive||.06});
+  clone.traverse(c=>{if(c.isMesh)c.material=mat});
+  const box=new THREE.Box3().setFromObject(clone),size=new THREE.Vector3(),ctr=new THREE.Vector3();
+  box.getSize(size);box.getCenter(ctr);
+  clone.position.set(-ctr.x,-box.min.y,-ctr.z);
+  const wrap=new THREE.Group();wrap.add(clone);
+  wrap.scale.set(tw/(size.x||1),th/(size.y||1),td/(size.z||1));
+  wrap.userData.finalScaleY=th/(size.y||1);
+  return wrap;
+}
+function procBuildingMesh(color,w,h,d,litRatio){
+  const geo=new THREE.BoxGeometry(w,h,d);geo.translate(0,h/2,0);
+  const tex=procBuildingTexture(color,litRatio);
+  const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x101828,map:tex,
+    emissive:color,emissiveIntensity:.35,emissiveMap:tex,roughness:.6,metalness:.3}));
+  m.userData.finalScaleY=1;return m;
+}
+function buildingNode(key,color,w,h,d,lit){
+  const src=Loaded.obj[key];
+  if(src)return groundedClone(src,color,w,h,d,.1);
+  return procBuildingMesh(color,w,h,d,lit||.4);
+}
+function riseNow(n,delay){n.scale.y=.001;n.userData.startTime=performance.now()+(delay||0)}
+function animateRise(group,now){
+  group.traverse(n=>{
+    const ud=n.userData;
+    if(!ud||ud.finalScaleY===undefined||ud.startTime===undefined||ud.startTime===null)return;
+    const e=now-ud.startTime;if(e<0)return;
+    const p=Math.min(1,e/900),eased=1-Math.pow(1-p,3);
+    n.scale.y=Math.max(.001,ud.finalScaleY*eased);
+  });
+}
+function buildWarehouse(){
+  if(whBuilt)return;whBuilt=true;
+  const wh=buildingNode('warehouse',FB.violet,7,5,7,.3);
+  wh.position.set(-13,0,0);g3.add(wh);
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(5,5,.3,24),
+    new THREE.MeshStandardMaterial({color:0x0e1626,emissive:FB.violet,emissiveIntensity:.25}));
+  pad.position.set(-13,.15,0);g3.add(pad);
+}
+function buildTower(){
+  if(towerBuilt)return;towerBuilt=true;
+  const tower=buildingNode('center',FB.cyan,7,26,7,.55);
+  tower.position.set(0,0,-14);g4.add(tower);
+  const wt=Loaded.obj['watertower'];
+  if(wt){const t=groundedClone(wt,FB.gold,3,4,3,.15);t.position.set(10,0,-10);g4.add(t)}
+  const halo=new THREE.Mesh(new THREE.RingGeometry(5.5,6,48),
+    new THREE.MeshBasicMaterial({color:FB.cyan,transparent:true,opacity:.5,side:THREE.DoubleSide}));
+  halo.rotation.x=-Math.PI/2;halo.position.set(0,.1,-14);g4.add(halo);
+}
+function frameTexture(key,fbHex){
+  const c=document.createElement('canvas');c.width=c.height=16;
+  const g=c.getContext('2d');const a=Loaded.img[key];
+  if(a&&a.ok){const fw=a.img.width/4,fh=a.img.height/4;
+    g.imageSmoothingEnabled=false;g.drawImage(a.img,0,0,fw,fh,0,0,16,16)}
+  else{g.fillStyle='#'+fbHex.toString(16).padStart(6,'0');g.fillRect(3,3,10,10)}
+  const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;
+  return t;
+}
+function itemTexture(key,fbHex){
+  const c=document.createElement('canvas');c.width=c.height=16;
+  const g=c.getContext('2d');const a=Loaded.img[key];
+  if(a&&a.ok){g.imageSmoothingEnabled=false;
+    const r=a.img.width/a.img.height,wpx=r>=1?14:14*r,hpx=r>=1?14/r:14;
+    g.drawImage(a.img,(16-wpx)/2,(16-hpx)/2,wpx,hpx)}
+  else{g.fillStyle='#'+fbHex.toString(16).padStart(6,'0');g.fillRect(4,4,8,8)}
+  const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;return t;
+}
+function bubbleTexture(){
+  const c=document.createElement('canvas');c.width=c.height=32;
+  const g=c.getContext('2d');
+  g.fillStyle='rgba(255,255,255,.95)';
+  g.beginPath();
+  if(g.roundRect)g.roundRect(2,2,28,22,7);else g.rect(2,2,28,22);
+  g.fill();
+  g.beginPath();g.moveTo(12,24);g.lineTo(16,30);g.lineTo(20,24);g.fill();
+  g.fillStyle='#0a1120';g.font='bold 15px monospace';g.textAlign='center';
+  g.fillText('?',16,19);
+  const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;return t;
+}
+
+const ROADS=[-60,-40,-20,0,20,40,60];
+function buildCity(){
+  if(cityBuilt)return;cityBuilt=true;
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(560,560),
+    new THREE.MeshStandardMaterial({color:0x060b18,roughness:.95}));
+  ground.rotation.x=-Math.PI/2;ground.position.y=-.05;gCity.add(ground);
+  const grid=new THREE.GridHelper(560,56,0x00e5ff,0x0c1c33);
+  grid.material.transparent=true;grid.material.opacity=.35;gCity.add(grid);
+  const roadMat=new THREE.MeshBasicMaterial({color:0x0f2b45});
+  for(const r of ROADS){
+    const h1=new THREE.Mesh(new THREE.PlaneGeometry(150,2.6),roadMat);
+    h1.rotation.x=-Math.PI/2;h1.position.set(0,.02,r);gCity.add(h1);
+    const v1=new THREE.Mesh(new THREE.PlaneGeometry(2.6,150),roadMat);
+    v1.rotation.x=-Math.PI/2;v1.position.set(r,.02,0);gCity.add(v1);
+  }
+  const crossObj=Loaded.obj['road_cross'],roadObj=Loaded.obj['road_straight'];
+  if(crossObj)for(const rx of[-40,0,40])for(const rz of[-40,0,40]){
+    const c=groundedClone(crossObj,0x16324f,6,.5,6,.05);c.position.set(rx,0,rz);gCity.add(c)}
+  if(roadObj)for(let i=-2;i<=2;i++){
+    const s=groundedClone(roadObj,0x16324f,6,.5,6,.05);s.position.set(i*13,0,-70);gCity.add(s)}
+
+  const types=[
+    {key:'corp_tower',color:0x2a6cff},{key:'shop_3d',color:0x00e5ff},
+    {key:'warehouse',color:0x8a5cff},{key:'center',color:0x35d6c3},
+    {key:'extra_A',color:0x3a7bd5},{key:'extra_C',color:0x6a5cff},
+    {key:'extra_E',color:0x00b8d9},{key:'extra_F',color:0x4a90d9}];
+  const blocks=[];
+  for(const bx of[-50,-30,-10,10,30,50])for(const bz of[-50,-30,-10,10,30,50])blocks.push([bx,bz]);
+  const dummy=new THREE.Object3D();
+  types.forEach((t,ti)=>{
+    const src=Loaded.obj[t.key];let geo,mat,unitH;
+    if(src&&extractGeometry(src)){
+      geo=extractGeometry(src).clone();geo.computeBoundingBox();
+      const bb=geo.boundingBox;
+      geo.translate(-(bb.min.x+bb.max.x)/2,-bb.min.y,-(bb.min.z+bb.max.z)/2);
+      unitH=bb.max.y-bb.min.y;
+      mat=new THREE.MeshStandardMaterial({color:t.color,flatShading:true,roughness:.55,
+        metalness:.25,emissive:t.color,emissiveIntensity:.08});
+    }else{
+      geo=new THREE.BoxGeometry(1,1,1);geo.translate(0,.5,0);unitH=1;
+      const tex=procBuildingTexture(t.color,.45);
+      mat=new THREE.MeshStandardMaterial({color:0x101828,map:tex,emissive:t.color,
+        emissiveIntensity:.4,emissiveMap:tex,roughness:.6,metalness:.3});
+    }
+    const count=13,im=new THREE.InstancedMesh(geo,mat,count);
+    for(let i=0;i<count;i++){
+      const b=blocks[(ti*13+i*7)%blocks.length];
+      const px=b[0]+(hash(ti*100+i)*10-5),pz=b[1]+(hash(ti*100+i+50)*10-5);
+      const targetH=7+hash(ti*31+i)*17,s=targetH/unitH,sxz=(4.5+hash(ti*7+i)*3)/Math.max(1,unitH*.55);
+      dummy.position.set(px,0,pz);
+      dummy.scale.set(src?s*.5:sxz,s,src?s*.5:sxz);
+      dummy.rotation.y=Math.floor(hash(i*3+ti)*4)*Math.PI/2;
+      dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);
+    }
+    im.instanceMatrix.needsUpdate=true;im.userData.mat=mat;gCity.add(im);
+  });
+  // hero tower — the merchant's platform HQ
+  const heroTower=buildingNode('corp_tower',FB.cyan,9,30,9,.6);
+  heroTower.position.set(0,0,4);gCity.add(heroTower);
+  rooftopPos.set(0,30,4);
+
+  // the merchant himself, standing on his platform
+  heroSpriteTexes.master=frameTexture('ninja_master',FB.magenta);
+  heroSpriteTexes.cyborg=frameTexture('ninja_cyborg',FB.cyan);
+  heroSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:heroSpriteTexes.master,transparent:true}));
+  heroSprite.scale.set(6.5,6.5,1);
+  heroSprite.position.copy(rooftopPos).add(new THREE.Vector3(0,3.4,0));
+  gCity.add(heroSprite);
+  const beaconL=new THREE.PointLight(FB.cyan,1.3,45);
+  beaconL.position.copy(heroSprite.position);gCity.add(beaconL);
+  beamMesh=new THREE.Mesh(new THREE.CylinderGeometry(.9,2.4,34,16,1,true),
+    new THREE.MeshBasicMaterial({color:FB.cyan,transparent:true,opacity:.14,
+      blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+  beamMesh.position.set(rooftopPos.x,rooftopPos.y+17,rooftopPos.z);
+  gCity.add(beamMesh);
+
+  // cars & streetlights
+  for(const[i,key]of['car_taxi','car_police','car_sedan'].entries()){
+    const src=Loaded.obj[key];if(!src)continue;
+    const car=groundedClone(src,[FB.gold,0x4a90d9,0xd9d9e8][i],3.4,1.6,1.8,.12);
+    car.userData.roadIdx=i*2;car.userData.speed=14+i*5;car.userData.t=i*40;
+    gCity.add(car);cars.push(car);
+  }
+  const sl=Loaded.obj['streetlight'];
+  if(sl)for(const r of[-20,20])for(const x of[-30,10,50]){
+    const l=groundedClone(sl,0x8fb3ff,.8,4.5,.8,.3);l.position.set(x,0,r+2.2);gCity.add(l)}
+
+  buildPackets();
+  buildParcels();
+  buildNeonLayer();
+}
+function buildPackets(){
+  const defs=[
+    {tex:frameTexture('ninja_low',FB.cyan),n:1200,color:0x9fe8ff},
+    {tex:frameTexture('monster_slime',FB.magenta),n:1200,color:0xffb3cf}];
+  for(const d of defs){
+    const pos=new Float32Array(d.n*3),meta=[];
+    for(let i=0;i<d.n;i++){
+      const axis=Math.random()<.5?0:1,line=ROADS[Math.floor(Math.random()*ROADS.length)];
+      const t=Math.random()*150-75,speed=(18+Math.random()*42)*(Math.random()<.5?1:-1);
+      const y=.8+Math.random()*1.6+(Math.random()<.12?8+Math.random()*14:0);
+      meta.push({axis,line,t,speed,y,ph:Math.random()*6.28});
+      pos[i*3]=axis?line:t;pos[i*3+1]=y;pos[i*3+2]=axis?t:line;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    const pts=new THREE.Points(geo,new THREE.PointsMaterial({size:1.5,map:d.tex,transparent:true,
+      alphaTest:.1,color:d.color,sizeAttenuation:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+    pts.userData.meta=meta;gCity.add(pts);packetSystems.push(pts);
+  }
+}
+/* golden parcels streaming FROM the merchant hub outward */
+function buildParcels(){
+  const n=520,pos=new Float32Array(n*3),meta=[];
+  for(let i=0;i<n;i++){
+    const axis=Math.random()<.5?0:1,line=ROADS[Math.floor(Math.random()*ROADS.length)];
+    const speed=(22+Math.random()*30)*(Math.random()<.5?1:-1);
+    meta.push({axis,line,t:(Math.random()*2-1)*8,speed,y:1.3+Math.random()*1.2,ph:Math.random()*6.28});
+    pos[i*3]=0;pos[i*3+1]=meta[i].y;pos[i*3+2]=0;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  parcelPts=new THREE.Points(geo,new THREE.PointsMaterial({size:1.9,map:itemTexture('chest',FB.gold),
+    transparent:true,alphaTest:.1,color:0xffe6a3,sizeAttenuation:true,depthWrite:false,
+    blending:THREE.AdditiveBlending}));
+  parcelPts.userData.meta=meta;gCity.add(parcelPts);
+}
+function tickPackets(dt,now){
+  for(const ps of packetSystems){
+    const pos=ps.geometry.attributes.position,meta=ps.userData.meta;
+    for(let i=0;i<meta.length;i++){
+      const m=meta[i];m.t+=m.speed*dt;
+      if(m.t>78)m.t=-78;if(m.t<-78)m.t=78;
+      pos.array[i*3]=m.axis?m.line:m.t;
+      pos.array[i*3+1]=m.y+Math.sin(now*.002+m.ph)*.3;
+      pos.array[i*3+2]=m.axis?m.t:m.line;
+    }
+    pos.needsUpdate=true;
+  }
+  if(parcelPts){
+    const pos=parcelPts.geometry.attributes.position,meta=parcelPts.userData.meta;
+    for(let i=0;i<meta.length;i++){
+      const m=meta[i];m.t+=m.speed*dt;
+      if(Math.abs(m.t)>78)m.t=(Math.random()*2-1)*4;  // respawn at hub
+      pos.array[i*3]=m.axis?m.line:m.t;
+      pos.array[i*3+1]=m.y;
+      pos.array[i*3+2]=m.axis?m.t:m.line;
+    }
+    pos.needsUpdate=true;
+  }
+}
+function tickCars(dt){
+  for(const car of cars){
+    car.userData.t+=car.userData.speed*dt;
+    if(car.userData.t>75)car.userData.t=-75;
+    const r=ROADS[car.userData.roadIdx%ROADS.length];
+    car.position.set(car.userData.t,0,r+(car.userData.speed>0?.9:-.9));
+    car.rotation.y=car.userData.speed>0?Math.PI/2:-Math.PI/2;
+  }
+}
+
+/* chapter-6 neon layer: AI core + wish→craft→deliver cycle */
+function buildNeonLayer(){
+  aiCore=new THREE.Group();
+  const wire=new THREE.Mesh(new THREE.IcosahedronGeometry(3.2,1),
+    new THREE.MeshBasicMaterial({color:FB.cyan,wireframe:true,transparent:true,opacity:.7}));
+  const innerGlow=new THREE.Mesh(new THREE.IcosahedronGeometry(1.7,1),
+    new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85}));
+  aiCore.add(wire,innerGlow);
+  aiCore.position.set(0,42,4);
+  aiCoreLight=new THREE.PointLight(FB.cyan,1.6,70);
+  aiCoreLight.position.copy(aiCore.position);
+  gNeon.add(aiCore,aiCoreLight);
+
+  const custDefs=[
+    {key:'monster_slime', pos:[22,0,30], name:{en:'Slime',ko:'슬라임'}},
+    {key:'monster_goblin',pos:[-28,0,18],name:{en:'Kappa',ko:'캇파'}},
+    {key:'monster_orc',   pos:[10,0,-34],name:{en:'Cyclope',ko:'사이클롭스'}}];
+  for(const cd of custDefs){
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:frameTexture(cd.key,FB.magenta),transparent:true}));
+    sp.scale.set(4.2,4.2,1);sp.position.set(cd.pos[0],2.1,cd.pos[2]);
+    const phone=new THREE.Mesh(new THREE.BoxGeometry(1,.15,1.8),
+      new THREE.MeshStandardMaterial({color:0x101828,emissive:FB.magenta,emissiveIntensity:1.1}));
+    phone.position.set(cd.pos[0]+2.2,.15,cd.pos[2]);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.6,.85,32),
+      new THREE.MeshBasicMaterial({color:FB.magenta,transparent:true,opacity:0,side:THREE.DoubleSide}));
+    ring.rotation.x=-Math.PI/2;ring.position.set(cd.pos[0]+2.2,.25,cd.pos[2]);
+    gNeon.add(sp,phone,ring);
+    customers6.push({sprite:sp,ring,name:cd.name,pos:new THREE.Vector3(cd.pos[0],2,cd.pos[2])});
+  }
+  bubbleSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:bubbleTexture(),transparent:true,opacity:0}));
+  bubbleSprite.scale.set(3,3,1);gNeon.add(bubbleSprite);
+  giftSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:itemTexture('scroll',FB.gold),transparent:true,opacity:0}));
+  giftSprite.scale.set(2.6,2.6,1);gNeon.add(giftSprite);
+
+  for(const[c,x,z]of[[FB.cyan,-30,-30],[FB.magenta,30,10],[FB.violet,-10,40]]){
+    const pl=new THREE.PointLight(c,0,90);pl.position.set(x,16,z);
+    gNeon.add(pl);neonLights.push(pl);
+  }
+}
+const AI={phase:'idle',t:0,cust:0,giftKeys:['scroll','potion','katana','chest']};
+const AI_ITEM_NAMES={
+  scroll:{en:'scroll',ko:'두루마리'},potion:{en:'elixir',ko:'영약'},
+  katana:{en:'katana',ko:'카타나'},chest:{en:'keepsake chest',ko:'맞춤 보석함'}};
+function tickNeon(dt,now){
+  aiCore.rotation.y+=dt*.5;aiCore.rotation.x=Math.sin(now*.0006)*.25;
+  aiCore.position.y=42+Math.sin(now*.001)*.8;
+  aiCoreLight.position.copy(aiCore.position);
+  for(const[i,pl]of neonLights.entries())pl.intensity=1+Math.sin(now*.003+i*2.1)*.7;
+
+  const c=customers6[AI.cust];if(!c)return;
+  AI.t+=dt;
+  if(AI.phase==='idle'&&AI.t>1.6){AI.phase='wish';AI.t=0;
+    bubbleSprite.material.opacity=1;bubbleSprite.position.copy(c.pos).add(new THREE.Vector3(0,3,0));}
+  else if(AI.phase==='wish'){
+    const p=Math.min(1,AI.t/1.7);
+    bubbleSprite.position.lerpVectors(
+      c.pos.clone().add(new THREE.Vector3(0,3,0)),aiCore.position,p*p*.9+p*.1);
+    bubbleSprite.material.opacity=1-p*.55;
+    if(p>=1){AI.phase='think';AI.t=0;bubbleSprite.material.opacity=0;AudioMgr.play('sfx_spawn')}
+  }
+  else if(AI.phase==='think'){
+    const s=1+Math.sin(AI.t*14)*.22;aiCore.scale.setScalar(s);
+    aiCoreLight.intensity=1.6+Math.sin(AI.t*14)*1.1;
+    if(AI.t>.9){AI.phase='deliver';AI.t=0;aiCore.scale.setScalar(1);
+      const g=AI.giftKeys[Math.floor(Math.random()*4)];
+      AI.gift=g;
+      giftSprite.material.map=itemTexture(g,FB.gold);
+      giftSprite.material.color=new THREE.Color().setHSL(Math.random(),.85,.72); // unique tint = customization
+      giftSprite.material.opacity=1;
+      AudioMgr.play('sfx_throw');}
+  }
+  else if(AI.phase==='deliver'){
+    const p=Math.min(1,AI.t/1.3);
+    giftSprite.position.lerpVectors(aiCore.position,c.pos,p);
+    giftSprite.position.y+=Math.sin(p*Math.PI)*7;
+    if(p>=1){AI.phase='joy';AI.t=0;giftSprite.material.opacity=0;
+      AudioMgr.play('sfx_coin');
+      const iname=AI_ITEM_NAMES[AI.gift]||AI_ITEM_NAMES.scroll;
+      toast(LANG==='en'
+        ?`Custom ${iname.en} crafted for ${c.name.en} — matched to taste · order #${orderNo++}`
+        :`${c.name.ko} 취향 맞춤 ${iname.ko} 제작 완료 · 주문 #${orderNo++}`);}
+  }
+  else if(AI.phase==='joy'){
+    const p=Math.min(1,AI.t/.9);
+    c.ring.material.opacity=1-p;c.ring.scale.setScalar(1+p*5);
+    c.sprite.position.y=2.1+Math.sin(p*Math.PI)*1.2;
+    if(p>=1){c.ring.material.opacity=0;c.ring.scale.setScalar(1);
+      AI.phase='idle';AI.t=0;AI.cust=(AI.cust+1)%customers6.length}
+  }
+}
+
+/* =====================================================================
+   ██ 8. CAMERA RIG
+===================================================================== */
+const CamRig={
+  mode:'idle',t:0,dur:1.8,
+  from:{pos:new THREE.Vector3(),look:new THREE.Vector3()},
+  to:{pos:new THREE.Vector3(0,8,24),look:new THREE.Vector3(0,4,0)},
+  look:new THREE.Vector3(),
+  flyTo(pos,look,dur){
+    this.from.pos.copy(camera.position);this.from.look.copy(this.look);
+    this.to.pos.copy(pos);this.to.look.copy(look);
+    this.dur=dur||1.8;this.t=0;this.mode='tween';
+  },
+  tick(dt,now,stage){
+    if(this.mode==='tween'){
+      this.t+=dt;
+      const p=Math.min(1,this.t/this.dur),e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+      camera.position.lerpVectors(this.from.pos,this.to.pos,e);
+      this.look.lerpVectors(this.from.look,this.to.look,e);
+      camera.lookAt(this.look);
+      if(p>=1)this.mode='hold';
+      return;
+    }
+    if(stage===3){camera.position.x=this.to.pos.x+Math.sin(now*.0004)*1.5;camera.lookAt(this.look)}
+    else if(stage===4){camera.position.y=this.to.pos.y+Math.sin(now*.0005)*1.2;camera.lookAt(this.look)}
+    else if(stage===5){
+      const a=now*.00012;
+      const t=new THREE.Vector3(Math.sin(a)*115,58+Math.sin(a*.7)*8,Math.cos(a)*115);
+      camera.position.lerp(t,Math.min(1,dt*1.1));camera.lookAt(0,0,0);
+    }else if(stage===6){
+      const a=now*.00007;
+      const t=new THREE.Vector3(Math.sin(a)*84,48+Math.sin(now*.0003)*4,Math.cos(a)*84);
+      camera.position.lerp(t,Math.min(1,dt*1.1));camera.lookAt(0,20,0);
+    }
+  }
+};
+
+/* =====================================================================
+   ██ 9. ORCHESTRATION — chapters, slow-motion, autoplay, i18n
+===================================================================== */
+let currentStage=-1,autoplay=false,autoTimer=null;
+const world={stageT:0,ts:1};
+function timeScaleFor(stage){
+  if(stage<1)return 1;
+  if(world.stageT<7)return .45;                       // narrated slow-motion intro
+  return Math.min(1,.45+(world.stageT-7)*.2);         // ramp back to full speed
+}
+function onCaptionsDone(){
+  if(currentStage===6){setTimeout(()=>{if(currentStage===6)showFinal(true)},2500);return}
+  if(autoplay&&currentStage>=0&&currentStage<6){
+    autoTimer=setTimeout(()=>goToStage(currentStage+1,true),3500);
+  }
+}
+function showFinal(on){
+  document.getElementById('finalCard').classList.toggle('show',on);
+}
+function goToStage(n,viaAuto){
+  if(n===currentStage)return;
+  clearTimeout(autoTimer);
+  if(!viaAuto&&autoplay&&n!==0){/* manual jump keeps presenting from there */}
+  currentStage=n;world.stageT=0;
+  showFinal(false);
+  const d=CHAPTERS[n];
+  document.querySelectorAll('.stage-btn').forEach(b=>{
+    const bn=+b.dataset.stage;
+    b.classList.toggle('active',bn===n);
+    b.classList.toggle('done',bn<n);
+  });
+  document.getElementById('stageTag').textContent='CH 0'+n;
+  document.getElementById('stageSubLabel').textContent=L(d.sub);
+  document.getElementById('infoSubtitle').textContent=(LANG==='en'?'CHAPTER 0':'챕터 0')+n+' · '+L(d.sub);
+  document.getElementById('infoTitle').textContent=L(d.title);
+  document.getElementById('infoDesc').textContent=L(d.desc);
+  document.getElementById('infoWhy').textContent=L(d.why);
+  document.getElementById('infoTech').textContent=L(d.tech);
+  document.getElementById('teleThroughput').textContent=d.throughput;
+  document.getElementById('teleCoverage').textContent=d.coverage;
+  document.getElementById('teleHuman').textContent=d.human;
+  document.getElementById('teleRender').textContent=d.render;
+  animateGauge(d.score);
+  AudioMgr.play('sfx_click');
+  AudioMgr.playBgm(n>=6?'bgm_future':'bgm_past');
+
+  const prologue=document.getElementById('prologue');
+  if(n===0){
+    prologue.classList.remove('hidden');
+    hero.classList.remove('show');capBox.classList.remove('visible');Cap.active=false;
+    threeContainer.classList.remove('visible');
+    return;
+  }
+  prologue.classList.add('hidden');
+  playHero(n);
+  startCaptions(n);
+
+  const w=viewport.clientWidth,h=viewport.clientHeight;
+  g3.visible=g4.visible=gCity.visible=gNeon.visible=false;
+
+  if(n<=2){
+    threeContainer.classList.remove('visible');
+    canvas2d.classList.remove('fade-out');
+    if(n===1)s1Init(w,h);else s2Init(w,h);
+  }else if(n===3){
+    canvas2d.classList.remove('fade-out');
+    s3Init(w,h);buildWarehouse();
+    g3.visible=true;
+    g3.traverse(nn=>{if(nn.userData&&nn.userData.finalScaleY!==undefined)riseNow(nn,300)});
+    threeContainer.classList.add('visible');
+    AudioMgr.play('sfx_spawn');
+    camera.position.set(-30,10,52);CamRig.look.set(-10,3,0);
+    CamRig.flyTo(new THREE.Vector3(-18,9,42),new THREE.Vector3(-8,4,0),2.2);
+  }else if(n===4){
+    canvas2d.classList.remove('fade-out');
+    s4Init(w,h);buildTower();
+    g4.visible=true;
+    g4.traverse(nn=>{if(nn.userData&&nn.userData.finalScaleY!==undefined)riseNow(nn,300)});
+    threeContainer.classList.add('visible');
+    AudioMgr.play('sfx_spawn');
+    CamRig.flyTo(new THREE.Vector3(0,12,48),new THREE.Vector3(0,15,-14),2.4);
+  }else{
+    canvas2d.classList.add('fade-out');
+    buildCity();
+    gCity.visible=true;gNeon.visible=(n===6);
+    if(heroSprite)heroSprite.material.map=(n===6)?heroSpriteTexes.cyborg:heroSpriteTexes.master;
+    if(beamMesh)beamMesh.material.color.setHex(n===6?FB.magenta:FB.cyan);
+    threeContainer.classList.add('visible');
+    AudioMgr.play('sfx_spawn');
+    gCity.traverse(nn=>{
+      if(nn.isInstancedMesh&&nn.userData.mat)nn.userData.mat.emissiveIntensity=(n===6)?.35:.1});
+    scene.fog=(n===6)?new THREE.FogExp2(0x070a1a,.011):new THREE.FogExp2(0x04070f,.007);
+    if(n===5)CamRig.flyTo(new THREE.Vector3(0,130,190),new THREE.Vector3(0,0,0),2.6);
+    else CamRig.flyTo(new THREE.Vector3(14,54,100),new THREE.Vector3(0,20,0),2.8);
+  }
+}
+let gaugeFrame;
+function animateGauge(target){
+  cancelAnimationFrame(gaugeFrame);
+  const fill=document.getElementById('gaugeFill'),val=document.getElementById('gaugeValue');
+  const start=parseFloat(fill.dataset.cur||'0'),t0=performance.now();
+  (function step(now){
+    const p=Math.min(1,(now-t0)/1000),e=1-Math.pow(1-p,3);
+    const v=start+(target-start)*e;
+    fill.style.width=v+'%';val.textContent=Math.round(v);fill.dataset.cur=v;
+    if(p<1)gaugeFrame=requestAnimationFrame(step);
+  })(t0);
+}
+
+/* ---------- dashboard & i18n rendering ---------- */
+function renderChapterList(){
+  const sel=document.getElementById('stageSelector');sel.innerHTML='';
+  for(const[n,d]of Object.entries(CHAPTERS)){
+    const b=document.createElement('button');
+    b.className='stage-btn'+(+n===currentStage?' active':'')+(+n<currentStage?' done':'');
+    b.dataset.stage=n;
+    b.innerHTML='<span class="num">0'+n+'</span>'+L(d.short);
+    b.onclick=()=>{AudioMgr.unlock();goToStage(+n)};
+    sel.appendChild(b);
+  }
+}
+function renderPrologue(){
+  document.getElementById('proKicker').textContent=L(PROLOGUE.kicker);
+  document.getElementById('proTitle').textContent=L(PROLOGUE.title);
+  document.getElementById('proParas').innerHTML=
+    PROLOGUE.paras.map(p=>'<p class="pro-para">'+L(p)+'</p>').join('');
+  document.getElementById('proCta').textContent=L(PROLOGUE.cta);
+  document.getElementById('proNote').textContent=L(PROLOGUE.note);
+}
+function renderFinal(){
+  document.getElementById('finalKicker').textContent=L(FINAL.kicker);
+  document.getElementById('finalTitle').textContent=L(FINAL.title);
+  document.getElementById('finalSub').textContent=L(FINAL.sub);
+  document.getElementById('finalReplay').textContent=L(FINAL.replay);
+}
+function renderStaticUI(){
+  document.getElementById('chaptersLabel').textContent=L(UI.chapters);
+  document.getElementById('gaugeLabel').textContent=L(UI.gauge);
+  document.getElementById('underhoodLabel').textContent=L(UI.underhood);
+  document.getElementById('dashSub').textContent=L(UI.dashSub);
+}
+function applyLanguage(){
+  renderChapterList();renderPrologue();renderFinal();renderStaticUI();renderCaption();
+  document.getElementById('langBtn').textContent=LANG==='en'?'한':'EN';
+  if(currentStage>=0){
+    const d=CHAPTERS[currentStage];
+    document.getElementById('stageSubLabel').textContent=L(d.sub);
+    document.getElementById('infoSubtitle').textContent=(LANG==='en'?'CHAPTER 0':'챕터 0')+currentStage+' · '+L(d.sub);
+    document.getElementById('infoTitle').textContent=L(d.title);
+    document.getElementById('infoDesc').textContent=L(d.desc);
+    document.getElementById('infoWhy').textContent=L(d.why);
+    document.getElementById('infoTech').textContent=L(d.tech);
+  }
+}
+function renderBindReport(){
+  const ok=Loaded.bind.filter(b=>b.ok).length,total=Loaded.bind.length;
+  document.getElementById('bindSummary').innerHTML=
+    '<b>'+ok+'</b> / '+total+' assets bound · '+(total-ok)+' on procedural fallback';
+}
+
+/* =====================================================================
+   ██ 10. MAIN LOOP & BOOT
+===================================================================== */
+let lastT=performance.now();
+function animate(now){
+  requestAnimationFrame(animate);
+  const dtReal=Math.min(.05,(now-lastT)/1000);lastT=now;
+  const w=viewport.clientWidth,h=viewport.clientHeight;
+  if(!w||!h)return;
+  world.stageT+=dtReal;
+  world.ts=timeScaleFor(currentStage);
+  document.getElementById('slowmoChip').classList.toggle('on',currentStage>=1&&world.ts<.92);
+  const dt=dtReal*world.ts;
+  tickCaptions(dtReal);
+
+  if(currentStage===1)s1Tick(dt,w,h);
+  else if(currentStage===2)s2Tick(dt,w,h);
+  else if(currentStage===3){
+    s3Tick(dt,w,h);animateRise(g3,now);
+    CamRig.tick(dtReal,now,3);renderer.render(scene,camera);
+  }else if(currentStage===4){
+    s4Tick(dt,w,h,world.ts);animateRise(g4,now);
+    CamRig.tick(dtReal,now,4);renderer.render(scene,camera);
+  }else if(currentStage>=5){
+    tickPackets(dt,now);tickCars(dt);
+    if(currentStage===6)tickNeon(dt,now);
+    if(heroSprite)heroSprite.position.y=rooftopPos.y+3.4+Math.sin(now*.0015)*.4;
+    CamRig.tick(dtReal,now,currentStage);renderer.render(scene,camera);
+  }
+}
+
+document.getElementById('proCta').onclick=()=>{AudioMgr.unlock();goToStage(1)};
+document.getElementById('finalReplay').onclick=()=>{autoplay=false;
+  document.getElementById('playBtn').classList.remove('on');goToStage(0)};
+document.getElementById('muteBtn').onclick=()=>{AudioMgr.unlock();AudioMgr.toggle()};
+document.getElementById('langBtn').onclick=()=>{LANG=LANG==='en'?'ko':'en';applyLanguage()};
+document.getElementById('playBtn').onclick=()=>{
+  AudioMgr.unlock();
+  autoplay=!autoplay;
+  document.getElementById('playBtn').classList.toggle('on',autoplay);
+  if(autoplay&&(currentStage===0||currentStage===-1))goToStage(1,true);
+};
+window.addEventListener('resize',()=>{resize2d();resizeThree()});
+window.addEventListener('pointerdown',()=>AudioMgr.unlock(),{once:true});
+
+(async function boot(){
+  AudioMgr.init();
+  initThree();
+  resize2d();
+  renderPrologue();renderFinal();renderStaticUI();
+  await preloadAll();
+  renderBindReport();
+  renderChapterList();
+  goToStage(0);
+  requestAnimationFrame(animate);
+  document.getElementById('bootOverlay').classList.add('hidden');
+})();
+</script>
+</body>
+</html>
