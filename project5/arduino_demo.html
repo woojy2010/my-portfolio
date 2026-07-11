@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Smart Sensor Gate — Simulation Console</title>
+<style>
+  :root, [data-theme="dark"]{
+    --page:#0d0d0d; --surface:#1a1a19; --surface2:#151514; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --border:rgba(255,255,255,.10); --overlay:rgba(5,6,8,.55);
+    --s1:#3987e5; --s2:#199e70; --heat:#eb6834; --cam:#3987e5; --mic:#199e70; --part:#b7ad2c;
+    --good:#0ca30c; --critical:#d03b3b; --warn:#c98500;
+  }
+  [data-theme="light"]{
+    --page:#f0f1ee; --surface:#ffffff; --surface2:#eceeea; --ink:#14181b; --ink2:#43484d; --muted:#767c82;
+    --grid:#dfe3e0; --border:rgba(0,0,0,.12); --overlay:rgba(230,232,228,.6);
+    --s1:#2a78d6; --s2:#1baf7a; --heat:#d95926; --cam:#2a78d6; --mic:#1baf7a; --part:#93841c;
+    --good:#0ca30c; --critical:#d03b3b; --warn:#a5670a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--page);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;}
+  body{display:flex;flex-direction:column;}
+
+  #topBar{flex:0 0 46px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 14px;background:var(--surface);border-bottom:1px solid var(--border);gap:8px;}
+  #topBar .brand{font-size:12px;letter-spacing:.06em;color:var(--ink2);font-weight:600;text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #topBar .status{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.04em;color:var(--good);flex-shrink:0;}
+  #topBar .status .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 6px var(--good);}
+  #topBar .toolbar{display:flex;gap:6px;flex-shrink:0;}
+  button.ctrl{background:var(--surface2);color:var(--ink);border:1px solid var(--border);padding:6px 10px;
+    font:inherit;font-size:11px;border-radius:4px;cursor:pointer;white-space:nowrap;}
+  button.ctrl:hover{border-color:var(--ink2);}
+
+  #app{flex:1;min-height:0;display:flex;flex-direction:row;overflow:hidden;}
+  @media (max-width:900px){
+    html,body{height:auto;overflow:visible;}
+    #app{flex-direction:column;height:auto;overflow:visible;}
+  }
+
+  #viewport{flex:1 1 58%;min-width:0;position:relative;background:#000;}
+  @media (max-width:900px){ #viewport{flex:0 0 46vh;} }
+  canvas#gl{display:block;width:100%;height:100%;}
+
+  #viewHud{position:absolute;top:10px;left:10px;background:rgba(13,13,13,.6);border:1px solid var(--border);
+    border-radius:6px;padding:8px 10px;font-size:11px;line-height:1.9;pointer-events:none;backdrop-filter:blur(2px);}
+  #viewHud .row{display:flex;align-items:center;gap:6px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  #viewHud .row b{font-weight:600;letter-spacing:.03em;}
+  #viewHud .row.live{color:#fff;}
+  #viewHud .swatch{width:8px;height:8px;border-radius:50%;background:#3a3a38;flex-shrink:0;}
+  #viewHud .row.live .swatch{box-shadow:0 0 6px currentColor;}
+  #viewHud .cam .swatch.on{background:var(--cam);color:var(--cam);}
+  #viewHud .heat .swatch.on{background:var(--heat);color:var(--heat);}
+  #viewHud .mic .swatch.on{background:var(--mic);color:var(--mic);}
+  #viewHud .part .swatch.on{background:var(--part);color:var(--part);}
+  @media (max-width:900px){
+    #viewHud{top:6px;left:6px;right:6px;display:flex;gap:4px;padding:5px 6px;line-height:1.35;}
+    #viewHud .row{flex:1;flex-direction:column;align-items:flex-start;gap:1px;font-size:9px;min-width:0;}
+    #viewHud .row span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  }
+
+  #inferToast{position:absolute;bottom:14px;left:10px;max-width:46%;background:rgba(13,13,13,.72);
+    border:1px solid var(--border);border-left:3px solid var(--part);border-radius:6px;padding:8px 12px;
+    font-size:12px;color:#fff;pointer-events:none;backdrop-filter:blur(2px);z-index:3;
+    transition:opacity .4s ease;line-height:1.5;}
+  #inferToast .conf{color:var(--warn);font-weight:600;margin-left:6px;font-variant-numeric:tabular-nums;}
+  @media (max-width:900px){
+    #inferToast{left:6px;right:6px;max-width:none;bottom:8px;font-size:11px;padding:6px 10px;}
+    #revealBtnWrap{bottom:52px;}
+  }
+
+  .inferRow{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink2);
+    padding:5px 0;border-bottom:1px dashed var(--grid);}
+  .inferRow:last-child{border-bottom:none;}
+  .inferRow .emoji{flex-shrink:0;}
+  .inferRow .txt{flex:1;min-width:0;}
+  .inferRow .conf{flex-shrink:0;font-weight:600;color:var(--warn);font-variant-numeric:tabular-nums;font-size:12px;}
+  .inferRow.top .txt{color:var(--ink);font-weight:600;}
+
+  #camViews{position:absolute;top:10px;right:10px;display:flex;gap:4px;z-index:3;transition:opacity .4s ease;}
+  @media (max-width:900px){ #camViews{top:58px;right:6px;} #camViews button{padding:4px 7px;font-size:9px;} }
+  #camViews.hidden{opacity:0;pointer-events:none;}
+  #camViews button{background:rgba(13,13,13,.6);color:#cfd3d6;border:1px solid var(--border);
+    padding:5px 9px;font-size:10px;letter-spacing:.04em;border-radius:5px;cursor:pointer;backdrop-filter:blur(2px);}
+  #camViews button.active{background:rgba(57,135,229,.35);color:#fff;border-color:#3987e5;}
+
+  #revealBtnWrap{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:3;}
+  #revealBtn{background:linear-gradient(135deg,#3987e5,#199e70);color:#fff;border:none;border-radius:22px;
+    padding:10px 20px;font-size:12px;font-weight:600;letter-spacing:.03em;cursor:pointer;
+    box-shadow:0 4px 18px rgba(57,135,229,.45);opacity:0;transform:translateY(10px) scale(0.9);
+    transition:opacity .6s ease, transform .6s ease;}
+  #revealBtn.show{opacity:1;transform:translateY(0) scale(1);}
+  #revealBtn.pulse{animation:revealPulse 1.8s ease-in-out infinite;}
+  @keyframes revealPulse{ 0%,100%{box-shadow:0 4px 18px rgba(57,135,229,.45);} 50%{box-shadow:0 4px 30px rgba(25,158,112,.7);} }
+  .hidden{display:none !important;}
+
+  #revealOverlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:16px;background:rgba(5,6,8,.4);backdrop-filter:blur(1.5px);z-index:6;text-align:center;padding:24px;}
+  #revealOverlay.hidden{display:none;}
+  .revealText{font-size:15px;line-height:1.85;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.85);
+    max-width:480px;opacity:0;transition:opacity 1.3s ease;}
+  .revealText.show{opacity:1;}
+  .revealCaption{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:10px;
+    letter-spacing:.08em;color:#9fb3c8;text-transform:uppercase;opacity:0;transition:opacity 1s ease;}
+  .revealCaption.show{opacity:0.85;}
+  #btnRestart{opacity:0;transition:opacity 1s ease;pointer-events:none;}
+  #btnRestart.show{opacity:1;pointer-events:auto;}
+
+  #dashboard{flex:1 1 42%;min-width:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;
+    gap:10px;background:var(--page);transition:opacity .8s ease;}
+  #dashboard.dimmed{opacity:0.3;}
+  @media (max-width:900px){ #dashboard{flex:none;overflow-y:visible;} }
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;flex-shrink:0;}
+  .cardHead{font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:600;
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;}
+  .cardHead .hint{font-size:9px;color:var(--muted);text-transform:none;font-weight:400;letter-spacing:0;}
+  .badge{font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid var(--border);letter-spacing:.04em;}
+  .badge.off{color:var(--muted);}
+  .badge.on{color:var(--good);border-color:var(--good);}
+
+  .howList{margin:0;padding-left:16px;font-size:11px;color:var(--ink2);line-height:1.7;}
+  .howList li{margin-bottom:3px;}
+  .introBody{font-size:12px;color:var(--ink2);line-height:1.75;margin:0 0 10px;}
+
+  svg#wireBoard{width:100%;height:auto;display:block;}
+  .wb-pin-label{font-size:8px;fill:var(--muted);text-anchor:middle;font-family:inherit;}
+  .wb-pin-hit{fill:transparent;cursor:pointer;touch-action:none;}
+  .wb-pin-dot{fill:#3a3a38;stroke:#000;stroke-width:0.5;pointer-events:none;}
+  .wb-pin-dot.selected{fill:var(--ink);}
+  .wb-pin-dot.connected{fill:var(--good);}
+  .wb-board-bg{fill:var(--surface2);}
+  .wb-cable{cursor:pointer;touch-action:none;}
+  .wb-cable-hit{fill:transparent;cursor:pointer;touch-action:none;}
+  .wb-cable-dot{stroke:#000;stroke-width:1;pointer-events:none;}
+  .wb-cable-dot.selected{filter:drop-shadow(0 0 4px currentColor);}
+  .wb-cable-label{font-size:9px;text-anchor:middle;font-weight:600;pointer-events:none;}
+  .wb-wire{fill:none;stroke-width:2.4;cursor:pointer;touch-action:none;opacity:0.95;}
+  .wb-wire-dash{fill:none;stroke:#454542;stroke-width:1.4;stroke-dasharray:2 3;pointer-events:none;}
+
+  .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .stat{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+  .statLabel{font-size:9px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
+  .statValue{font-size:19px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px;}
+
+  .canvasWrap{position:relative;border-radius:4px;overflow:hidden;}
+  .canvasWrap::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(128,128,128,0.05) 0px, rgba(128,128,128,0.05) 1px, transparent 1px, transparent 3px);}
+  canvas#heatCanvas, canvas#micCanvas{width:100%;display:block;background:#100e0c;}
+  canvas#micCanvas{background:#0e1210;}
+
+  .mic-legend{display:flex;gap:14px;margin-top:6px;font-size:10px;color:var(--ink2);}
+  .mic-legend span{display:flex;align-items:center;gap:5px;}
+  .mic-legend i{width:10px;height:2px;display:inline-block;border-radius:1px;}
+  .mic-legend i.s1{background:var(--s1);}
+  .mic-legend i.s2{background:var(--s2);}
+
+  .vocGaugeWrap{height:10px;background:var(--surface2);border-radius:5px;overflow:hidden;border:1px solid var(--border);}
+  .vocGaugeFill{height:100%;width:0%;background:linear-gradient(90deg,var(--part),#e2c94a);transition:width .15s linear;}
+  .vocReadout{margin-top:6px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);}
+
+  #logList{max-height:150px;overflow-y:auto;font-size:10.5px;line-height:1.8;font-variant-numeric:tabular-nums;}
+  #logList .entry{color:var(--ink2);border-bottom:1px dashed var(--grid);padding:2px 0;}
+  #logList .entry .t{color:var(--muted);margin-right:6px;}
+  #logList .entry.detect{color:var(--s1);}
+  #logList .entry.complete{color:var(--good);}
+  #logList .entry.wire{color:var(--heat);}
+  #logList .entry.voc{color:var(--part);}
+
+  .overlay{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;
+    justify-content:center;z-index:50;padding:16px;}
+  .overlay.hidden{display:none;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;max-width:520px;
+    width:100%;max-height:82vh;overflow:auto;}
+  .modalHead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;
+    border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
+  .modalHead h2{margin:0;font-size:14px;color:var(--s1);}
+  #btnHelpClose{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;}
+  .modalBody{padding:14px 16px;font-size:12px;line-height:1.75;color:var(--ink);}
+  .modalBody ol{margin:0 0 10px 18px;padding:0;}
+  .modalBody li{margin-bottom:7px;color:var(--ink2);}
+</style>
+</head>
+<body>
+  <div id="topBar">
+    <div class="brand" data-i18n="brand">스마트 센서 게이트 — 시뮬레이션 콘솔</div>
+    <div class="toolbar">
+      <button class="ctrl" id="btnHelp">❓ <span data-i18n="help">설명</span></button>
+      <button class="ctrl" id="btnLang">EN</button>
+      <button class="ctrl" id="btnTheme">☀️</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <section id="viewport">
+      <canvas id="gl"></canvas>
+      <div id="viewHud">
+        <div class="row cam" id="hudCam"><span class="swatch"></span><b>CAM</b><span id="hudCamText">--</span></div>
+        <div class="row heat" id="hudHeat"><span class="swatch"></span><b>HEAT</b><span id="hudHeatText">--</span></div>
+        <div class="row mic" id="hudMic"><span class="swatch"></span><b>MIC</b><span id="hudMicText">--</span></div>
+        <div class="row part" id="hudPart"><span class="swatch"></span><b>PART</b><span id="hudPartText">--</span></div>
+      </div>
+      <div id="inferToast" class="hidden"></div>
+      <div id="camViews">
+        <button data-view="auto" class="active">AUTO</button>
+        <button data-view="top">TOP</button>
+        <button data-view="gate">GATE</button>
+        <button data-view="side">SIDE</button>
+      </div>
+      <div id="revealBtnWrap"><button id="revealBtn" class="hidden" data-i18n="revealBtn">이게 진짜 뭘까요?</button></div>
+      <div id="revealOverlay" class="overlay hidden" style="position:absolute;">
+        <div class="revealText" id="revealTextA"></div>
+        <div class="revealText" id="revealTextB"></div>
+        <button class="ctrl hidden" id="btnRestart" data-i18n="restart">다시 시작</button>
+        <div class="revealCaption" id="revealCaption"></div>
+      </div>
+    </section>
+
+    <aside id="dashboard">
+      <div class="card">
+        <div class="cardHead"><span data-i18n="howTitle">How it works</span></div>
+        <ol class="howList">
+          <li data-i18n="how1">Connect each sensor cable (CAM / HEAT / MIC / PART) to an Arduino pin below.</li>
+          <li data-i18n="how2">People crossing the gate in the tunnel trigger the sensors.</li>
+          <li data-i18n="how3">An unwired sensor reports NO SIGNAL — data only flows once wired.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><span data-i18n="wireTitle">Arduino Station</span> <span class="hint" data-i18n="wireHint">tap a cable end, then a pin</span></div>
+        <svg id="wireBoard" viewBox="0 0 360 210"></svg>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><span data-i18n="readoutTitle">Live Readout</span></div>
+        <div class="statGrid">
+          <div class="stat"><div class="statLabel" data-i18n="lblHeight">Height</div><div class="statValue" id="statHeight">-- cm</div></div>
+          <div class="stat"><div class="statLabel">BPM</div><div class="statValue" id="statBpm">--</div></div>
+          <div class="stat"><div class="statLabel" data-i18n="lblBreath">Breath</div><div class="statValue" id="statBreath">-- /min</div></div>
+          <div class="stat"><div class="statLabel" data-i18n="lblHeatMax">Heat Max</div><div class="statValue" id="statHeat">--</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><span data-i18n="heatTitle">Thermal Array</span> <span class="badge off" id="heatBadge">NO SIGNAL</span></div>
+        <div class="canvasWrap"><canvas id="heatCanvas" width="320" height="180"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><span data-i18n="micTitle">Audio / Vitals</span> <span class="badge off" id="micBadge">NO SIGNAL</span></div>
+        <div class="canvasWrap"><canvas id="micCanvas" width="320" height="110"></canvas></div>
+        <div class="mic-legend"><span><i class="s1"></i><span data-i18n="legBreath">Breath</span></span><span><i class="s2"></i><span data-i18n="legHeart">Heartbeat</span></span></div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><span data-i18n="partTitle">Particle Sensor (VOC)</span> <span class="badge off" id="partBadge">NO SIGNAL</span></div>
+        <div class="vocGaugeWrap"><div class="vocGaugeFill" id="vocFill"></div></div>
+        <div class="vocReadout" id="vocReadout">-- ppb</div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><span data-i18n="inferTitle">Sensor Fusion — Inference</span> <span class="badge off" id="inferBadge">--</span></div>
+        <div id="inferList"></div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><span data-i18n="logTitle">Event Log</span></div>
+        <div id="logList"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="helpOverlay" class="overlay">
+    <div class="modal">
+      <div class="modalHead"><h2 data-i18n="helpTitle">이 시뮬레이션은 무엇인가요?</h2><button id="btnHelpClose">×</button></div>
+      <div class="modalBody">
+        <p class="introBody" data-i18n="introBody">이 시뮬레이션은 건물 사이 골목에 설치된 "스마트 센서 게이트"가 지나가는 사람을 감지하는 과정을 보여줍니다. 카메라(신장 추정), 열감지 배열(체온 분포), 마이크(심박·호흡), 입자 센서(휘발성 유기화합물)까지 — 실제 배선을 연결해야만 각 센서의 데이터가 흐릅니다.</p>
+        <ol>
+          <li data-i18n="step1">각 센서 케이블(CAM/HEAT/MIC/PART)을 아래 아두이노 핀에 연결하세요.</li>
+          <li data-i18n="step2">AUTO / TOP / GATE / SIDE 버튼으로 카메라 각도를 바꿔가며 사람과 센서 반응을 관찰하세요.</li>
+          <li data-i18n="step3">사람은 계속 지나다닙니다 — 연결되지 않은 센서는 항상 NO SIGNAL 입니다.</li>
+          <li data-i18n="step4">모든 배선과 모든 카메라 각도를 다 살펴보면, 숨겨진 버튼이 나타납니다.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+/*
+ USAGE
+ 1) Wire CAM/HEAT/MIC/PART cables to Arduino pins; unwired sensors read NO SIGNAL.
+ 2) Switch AUTO/TOP/GATE/SIDE views to watch people and sensors from different angles.
+ 3) Toggle language (KO/EN) and theme (light/dark) from the top bar.
+ 4) Explore everything, then a hidden button appears with a final twist.
+*/
+(function(){
+  'use strict';
+
+  const clockStart=performance.now();
+  function nowSec(){ return (performance.now()-clockStart)/1000; }
+  function rand(a,b){ return a+Math.random()*(b-a); }
+
+  // Structural perf mode: on coarse-pointer/small devices we disable antialias,
+  // cap pixel ratio lower, spawn fewer people, and skip heatmap frames so the
+  // simulation stays smooth on low-end phones.
+  const IS_MOBILE = window.matchMedia('(pointer:coarse)').matches || Math.min(screen.width,screen.height)<=820;
+  const MAX_PEOPLE = IS_MOBILE?4:6;
+  const HEATMAP_FRAME_SKIP = IS_MOBILE?3:1;   // draw heatmap every Nth frame
+  const PUFF_PARTICLES = IS_MOBILE?6:10;
+
+  // sensor-fusion inference strings (localized outside I18N since they carry emoji + dynamic confidence)
+  const INFER_STRINGS={
+    fart:    {ko:'방귀 가능성 높음 — 체열 + 유기화합물 동시 감지', en:'Flatulence likely — heat + organic compounds coincide', emoji:'💨'},
+    workout: {ko:'심박 급상승 — 운동 직후 또는 긴장 상태',        en:'Elevated heart rate — post-exercise or nervous',        emoji:'🏃'},
+    tall:    {ko:'장신 보행자 감지 — 농구선수?',                  en:'Very tall passerby — basketball player?',               emoji:'🏀'},
+    group:   {ko:'일행 이동 중 — 생체신호 다중 혼재',             en:'Group passing — overlapping vital signals',             emoji:'👥'},
+    residual:{ko:'잔류 냄새 감지 — 방금 누군가 지나감',           en:'Residual odor — someone just passed through',           emoji:'🌫️'},
+    calm:    {ko:'안정 상태 보행자 — 특이사항 없음',              en:'Calm passerby — nothing unusual',                       emoji:'✅'}
+  };
+
+  // =========================================================
+  // i18n + theme
+  // =========================================================
+  const I18N={
+    ko:{
+      brand:'스마트 센서 게이트 — 시뮬레이션 콘솔', help:'설명', helpTitle:'이 시뮬레이션은 무엇인가요?',
+      introBody:'이 시뮬레이션은 건물 사이 골목에 설치된 "스마트 센서 게이트"가 지나가는 사람을 감지하는 과정을 보여줍니다. 카메라(신장 추정), 열감지 배열(체온 분포), 마이크(심박·호흡), 입자 센서(휘발성 유기화합물)까지 — 실제 배선을 연결해야만 각 센서의 데이터가 흐릅니다.',
+      step1:'각 센서 케이블(CAM/HEAT/MIC/PART)을 아래 아두이노 핀에 연결하세요.',
+      step2:'AUTO / TOP / GATE / SIDE 버튼으로 카메라 각도를 바꿔가며 사람과 센서 반응을 관찰하세요.',
+      step3:'사람은 계속 지나다닙니다 — 연결되지 않은 센서는 항상 NO SIGNAL 입니다.',
+      step4:'모든 배선과 모든 카메라 각도를 다 살펴보면, 숨겨진 버튼이 나타납니다.',
+      howTitle:'작동 방식', how1:'각 센서 케이블(CAM / HEAT / MIC / PART)을 아래 아두이노 핀에 연결하세요.',
+      how2:'터널 게이트를 지나는 사람이 센서를 작동시킵니다.', how3:'배선되지 않은 센서는 NO SIGNAL — 연결해야만 데이터가 흐릅니다.',
+      wireTitle:'아두이노 스테이션', wireHint:'케이블 끝을 탭한 뒤, 핀을 탭하세요',
+      readoutTitle:'실시간 측정값', lblHeight:'신장', lblBreath:'호흡', lblHeatMax:'최대 열감지',
+      heatTitle:'열감지 배열', micTitle:'오디오 / 생체신호', partTitle:'입자 센서 (VOC)',
+      legBreath:'호흡', legHeart:'심박', logTitle:'이벤트 로그',
+      inferTitle:'센서 융합 — AI 추론',
+      revealBtn:'이게 진짜 뭘까요?', restart:'다시 시작',
+      revealMsgA:'이 센서들은 지나가는 사람들이 알아챌 수 없습니다 — 하지만 사용된다면, 사람들은 알 방법이 없습니다.',
+      revealCaption:'센서 컨텍스트 재보정 중...',
+      closing1:'여기까지 봐 주셔서 감사합니다',
+      closing2:'Jae W'
+    },
+    en:{
+      brand:'Smart Sensor Gate — Simulation Console', help:'Help', helpTitle:'What does this simulation show?',
+      introBody:'This simulation shows a "Smart Sensor Gate" embedded in an alley between two buildings, scanning people as they pass. Camera (height), thermal array (body heat), microphone (heartbeat & breath), and a particle sensor (volatile organic compounds) — each stream only goes live once you physically wire it.',
+      step1:'Connect each sensor cable (CAM/HEAT/MIC/PART) to an Arduino pin below.',
+      step2:'Switch AUTO / TOP / GATE / SIDE views to watch people and sensor activity from different angles.',
+      step3:'People keep passing through — an unwired sensor always reads NO SIGNAL.',
+      step4:'Explore every wire and every camera angle, and a hidden button will appear.',
+      howTitle:'How it works', how1:'Connect each sensor cable (CAM / HEAT / MIC / PART) to an Arduino pin below.',
+      how2:'People crossing the gate in the tunnel trigger the sensors.', how3:'An unwired sensor reports NO SIGNAL — data only flows once wired.',
+      wireTitle:'Arduino Station', wireHint:'tap a cable end, then a pin',
+      readoutTitle:'Live Readout', lblHeight:'Height', lblBreath:'Breath', lblHeatMax:'Heat Max',
+      heatTitle:'Thermal Array', micTitle:'Audio / Vitals', partTitle:'Particle Sensor (VOC)',
+      legBreath:'Breath', legHeart:'Heartbeat', logTitle:'Event Log',
+      inferTitle:'Sensor Fusion — Inference',
+      revealBtn:'What is this, really?', restart:'Restart',
+      revealMsgA:'These sensors are invisible to passersby — but once deployed, people have no way of knowing they are being observed.',
+      revealCaption:'Recalibrating sensor context...',
+      closing1:'Thank you for watching this far.',
+      closing2:'Jae W'
+    }
+  };
+  const LIVE={ko:{live:'LIVE',track:'추적중',off:'신호없음'},en:{live:'LIVE',track:'TRACKING',off:'NO SIGNAL'}};
+  let currentLang=localStorage.getItem('gate_lang')||'ko';
+  let currentTheme=localStorage.getItem('gate_theme')||'dark';
+
+  function applyLang(lang){
+    currentLang=lang;
+    document.documentElement.lang=(lang==='ko')?'ko':'en';
+    document.querySelectorAll('[data-i18n]').forEach(function(node){
+      const key=node.getAttribute('data-i18n');
+      if(I18N[lang][key]!==undefined) node.textContent=I18N[lang][key];
+    });
+    document.getElementById('btnLang').textContent=(lang==='ko')?'EN':'한';
+    localStorage.setItem('gate_lang',lang);
+    updateBadges(); // refresh LIVE/NO SIGNAL text in current language
+  }
+  function applyTheme(theme){
+    currentTheme=theme;
+    document.documentElement.setAttribute('data-theme',theme);
+    document.getElementById('btnTheme').textContent=(theme==='dark')?'☀️':'🌙';
+    localStorage.setItem('gate_theme',theme);
+    cssVarCache={};
+    if(typeof updateSceneTheme==='function') updateSceneTheme(theme);
+  }
+  document.getElementById('btnLang').addEventListener('click', function(){ applyLang(currentLang==='ko'?'en':'ko'); });
+  document.getElementById('btnTheme').addEventListener('click', function(){ applyTheme(currentTheme==='dark'?'light':'dark'); });
+  document.getElementById('btnHelp').addEventListener('click', function(){ document.getElementById('helpOverlay').classList.remove('hidden'); });
+  document.getElementById('btnHelpClose').addEventListener('click', function(){
+    document.getElementById('helpOverlay').classList.add('hidden');
+    introClosed=true; checkProgress();
+  });
+  document.getElementById('helpOverlay').addEventListener('pointerdown', function(e){
+    if(e.target.id==='helpOverlay'){ document.getElementById('helpOverlay').classList.add('hidden'); introClosed=true; checkProgress(); }
+  });
+
+  // =========================================================
+  // EVENT LOG
+  // =========================================================
+  const logListEl=document.getElementById('logList');
+  function log(msg, cls){
+    const row=document.createElement('div');
+    row.className='entry'+(cls?' '+cls:'');
+    const t=document.createElement('span'); t.className='t'; t.textContent='['+nowSec().toFixed(1)+'s]';
+    row.appendChild(t);
+    row.appendChild(document.createTextNode(msg));
+    logListEl.appendChild(row);
+    while(logListEl.children.length>40) logListEl.removeChild(logListEl.firstChild);
+    logListEl.scrollTop=logListEl.scrollHeight;
+  }
+
+  // =========================================================
+  // WIRING MODEL — cables (CAM/HEAT/MIC/PART) <-> Arduino pins
+  // =========================================================
+  const NS='http://www.w3.org/2000/svg';
+  function el(tag,attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+  const CABLES=[
+    {id:'CAM',  x:60,  y:26, color:'var(--cam)'},
+    {id:'HEAT', x:104, y:26, color:'var(--heat)'},
+    {id:'MIC',  x:148, y:26, color:'var(--mic)'},
+    {id:'PART', x:192, y:26, color:'var(--part)'}
+  ];
+  const PINS=[
+    {id:'A0', x:60,  y:150, active:true},
+    {id:'A1', x:104, y:150, active:true},
+    {id:'A2', x:148, y:150, active:true},
+    {id:'A3', x:192, y:150, active:true},
+    {id:'D2', x:236, y:150, active:false},
+    {id:'D3', x:280, y:150, active:false},
+    {id:'D4', x:324, y:150, active:false}
+  ];
+
+  const connections={}; const pinToCable={}; let pending=null;
+
+  const svg=document.getElementById('wireBoard');
+  svg.appendChild(el('rect',{x:0,y:0,width:360,height:210,rx:8,class:'wb-board-bg'}));
+  const gWires=el('g',{}); const gDash=el('g',{}); const gPins=el('g',{}); const gCables=el('g',{});
+  svg.appendChild(gDash); svg.appendChild(gWires); svg.appendChild(gPins); svg.appendChild(gCables);
+
+  svg.insertBefore(el('rect',{x:24,y:120,width:312,height:70,rx:6,fill:'#0f0f0e',stroke:'var(--border)'}), gDash);
+  const boardLabel=el('text',{x:180,y:196,'font-size':8,fill:'var(--muted)','text-anchor':'middle'});
+  boardLabel.textContent='ARDUINO UNO — ANALOG / DIGITAL HEADER';
+  svg.insertBefore(boardLabel, gDash);
+
+  function bezier(x1,y1,x2,y2){
+    const midY=(y1+y2)/2;
+    return 'M '+x1+' '+y1+' C '+x1+' '+midY+', '+x2+' '+midY+', '+x2+' '+y2;
+  }
+
+  const pinDots={};
+  PINS.forEach(function(p){
+    const g=el('g',{});
+    if(!p.active) g.appendChild(el('line',{x1:p.x,y1:p.y,x2:p.x,y2:p.y-40,class:'wb-wire-dash'}));
+    const hit=el('circle',{cx:p.x,cy:p.y,r:13,class:'wb-pin-hit'});
+    const dot=el('circle',{cx:p.x,cy:p.y,r:5,class:'wb-pin-dot'});
+    const label=el('text',{x:p.x,y:p.y+22,class:'wb-pin-label'}); label.textContent=p.id;
+    g.appendChild(hit); g.appendChild(dot); g.appendChild(label);
+    if(p.active) hit.addEventListener('pointerdown', function(e){ e.preventDefault(); handleNodeClick('pin',p.id); });
+    gPins.appendChild(g);
+    pinDots[p.id]=dot;
+  });
+
+  const cableDots={};
+  CABLES.forEach(function(c){
+    const g=el('g',{});
+    const hit=el('circle',{cx:c.x,cy:c.y,r:14,class:'wb-cable-hit'});
+    const dot=el('circle',{cx:c.x,cy:c.y,r:7,class:'wb-cable-dot',fill:c.color,style:'color:'+c.color});
+    const label=el('text',{x:c.x,y:c.y-14,class:'wb-cable-label',fill:c.color}); label.textContent=c.id;
+    g.appendChild(hit); g.appendChild(dot); g.appendChild(label);
+    hit.addEventListener('pointerdown', function(e){ e.preventDefault(); handleNodeClick('cable',c.id); });
+    gCables.appendChild(g);
+    cableDots[c.id]=dot;
+    gDash.appendChild(el('path',{d:bezier(c.x,c.y+8,c.x,110), class:'wb-wire-dash'}));
+  });
+
+  function clearPending(){
+    if(pending){
+      if(pending.type==='cable') cableDots[pending.id].classList.remove('selected');
+      else pinDots[pending.id].classList.remove('selected');
+    }
+    pending=null;
+  }
+  function handleNodeClick(type,id){
+    if(!pending){ pending={type:type,id:id}; (type==='cable'?cableDots[id]:pinDots[id]).classList.add('selected'); return; }
+    if(pending.type===type && pending.id===id){ clearPending(); return; }
+    if(pending.type===type){ clearPending(); pending={type:type,id:id}; (type==='cable'?cableDots[id]:pinDots[id]).classList.add('selected'); return; }
+    const cableId=type==='cable'?id:pending.id, pinId=type==='pin'?id:pending.id;
+    clearPending();
+    connectCable(cableId,pinId);
+  }
+  function connectCable(cableId,pinId){
+    if(connections[cableId] || pinToCable[pinId]) return;
+    connections[cableId]=pinId; pinToCable[pinId]=cableId;
+    const c=CABLES.find(function(x){return x.id===cableId;});
+    const p=PINS.find(function(x){return x.id===pinId;});
+    const path=el('path',{d:bezier(c.x,c.y+8,p.x,p.y-8), class:'wb-wire', stroke:c.color});
+    path.addEventListener('pointerdown', function(e){ e.preventDefault(); e.stopPropagation(); disconnectCable(cableId); });
+    gWires.appendChild(path);
+    cableDots[cableId]._wire=path;
+    pinDots[pinId].classList.add('connected');
+    log(cableId+' connected to '+pinId, 'wire');
+    updateBadges(); checkProgress();
+  }
+  function disconnectCable(cableId){
+    const pinId=connections[cableId]; if(!pinId) return;
+    delete connections[cableId]; delete pinToCable[pinId];
+    const path=cableDots[cableId]._wire; if(path) path.remove();
+    pinDots[pinId].classList.remove('connected');
+    log(cableId+' disconnected', 'wire');
+    updateBadges();
+  }
+  function isConnected(cableId){ return !!connections[cableId]; }
+  function allWired(){ return isConnected('CAM')&&isConnected('HEAT')&&isConnected('MIC')&&isConnected('PART'); }
+  function updateBadges(){
+    setBadge('heatBadge', isConnected('HEAT'));
+    setBadge('micBadge', isConnected('MIC'));
+    setBadge('partBadge', isConnected('PART'));
+  }
+  function setBadge(elId,on){
+    const b=document.getElementById(elId);
+    b.textContent = on?LIVE[currentLang].live:LIVE[currentLang].off;
+    b.classList.toggle('on',on); b.classList.toggle('off',!on);
+  }
+
+  // =========================================================
+  // PROGRESS TRACKING — reveal button appears once fully explored
+  // =========================================================
+  let introClosed=false;
+  const viewedViews=new Set(['auto']);
+  const revealBtnEl=document.getElementById('revealBtn');
+  function checkProgress(){
+    if(revealPhase==='sim' && allWired() && introClosed && viewedViews.size>=4){
+      revealBtnEl.classList.remove('hidden');
+      requestAnimationFrame(function(){ revealBtnEl.classList.add('show','pulse'); });
+    }
+  }
+
+  // =========================================================
+  // 3D SCENE — houses, tunnel, sensor gate, alley detail
+  // =========================================================
+  const canvas=document.getElementById('gl');
+  const renderer=new THREE.WebGLRenderer({canvas:canvas, antialias:!IS_MOBILE, powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE?1.3:2));
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.05;
+  if('outputColorSpace' in renderer) renderer.outputColorSpace=THREE.SRGBColorSpace;
+
+  // Art direction from the C4D reference render (tutorialc4d.jpg): modern white
+  // villa volumes at dusk, warm glass interiors, globe path lamps, periwinkle sky.
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x1a2233);
+  scene.fog=new THREE.Fog(0x1a2233, 34, 85);
+
+  const camera=new THREE.PerspectiveCamera(55,1,0.1,300);
+  const camTarget=new THREE.Vector3(0,3.2,0);
+
+  const hemi=new THREE.HemisphereLight(0x8fb3d9,0x1a1c1f,0.95); scene.add(hemi);
+  const dirLight=new THREE.DirectionalLight(0xdfe8ff,1.05); dirLight.position.set(10,16,7); scene.add(dirLight);
+  const fillLight=new THREE.PointLight(0x9fc4ff, 0.7, 20, 2); fillLight.position.set(0,5.5,0); scene.add(fillLight);
+
+  // Everything that represents the "alley scene" lives under worldGroup so the
+  // closing cinematic can shrink it as a single unit into the wrist-watch reveal.
+  const worldGroup=new THREE.Group(); scene.add(worldGroup);
+
+  function canvasTexture(w,h,draw){
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    draw(c.getContext('2d'),w,h);
+    const t=new THREE.CanvasTexture(c);
+    t.wrapS=t.wrapT=THREE.RepeatWrapping;
+    return t;
+  }
+  // light paved plaza tones matching the villa reference (was dark asphalt)
+  const floorTex=canvasTexture(64,64,function(ctx,w,h){
+    ctx.fillStyle='#3e444d'; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<160;i++){ ctx.fillStyle='rgba(255,255,255,'+(Math.random()*0.05)+')'; ctx.fillRect(Math.random()*w,Math.random()*h,1,1); }
+  });
+  floorTex.repeat.set(6,20);
+  const walkTex=canvasTexture(32,64,function(ctx,w,h){
+    ctx.fillStyle='#4d545e'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.lineWidth=1;
+    for(let y=0;y<h;y+=8){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  });
+  walkTex.repeat.set(2,16);
+
+  const groundMat=new THREE.MeshStandardMaterial({map:floorTex, roughness:1});
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80), groundMat);
+  ground.rotation.x=-Math.PI/2; worldGroup.add(ground);
+
+  const walkMat=new THREE.MeshStandardMaterial({map:walkTex, roughness:0.9});
+  const walkway=new THREE.Mesh(new THREE.PlaneGeometry(6.4,22), walkMat);
+  walkway.rotation.x=-Math.PI/2; walkway.position.y=0.01; worldGroup.add(walkway);
+
+  // puddle — a small reflective patch for alley grime realism
+  const puddleMat=new THREE.MeshStandardMaterial({color:0x1c2530, roughness:0.15, metalness:0.4, transparent:true, opacity:0.85});
+  const puddle=new THREE.Mesh(new THREE.CircleGeometry(1.1,20), puddleMat);
+  puddle.rotation.x=-Math.PI/2; puddle.position.set(1.4,0.015,4.5); worldGroup.add(puddle);
+
+  const fadeMeshes=[]; // meshes hidden/faded during the reveal morph
+
+  // Modern white villa volumes with warm floor-to-ceiling glass, per the C4D
+  // reference: two stacked offset boxes, flat roof slabs, glowing interiors.
+  const villaWhiteMat=new THREE.MeshStandardMaterial({color:0xdfe2e6, roughness:0.85});
+  const villaSlabMat=new THREE.MeshStandardMaterial({color:0xf2f4f6, roughness:0.75});
+  function buildHouse(xSide){
+    const g=new THREE.Group();
+    const lower=new THREE.Mesh(new THREE.BoxGeometry(4.5,3.4,20), villaWhiteMat);
+    lower.position.set(xSide*7.2, 1.7, 0); g.add(lower); fadeMeshes.push(lower);
+    const upper=new THREE.Mesh(new THREE.BoxGeometry(4.5,2.8,13), villaWhiteMat);
+    upper.position.set(xSide*7.55, 3.4+1.4, -1.5); g.add(upper); fadeMeshes.push(upper);
+    const roofLower=new THREE.Mesh(new THREE.BoxGeometry(5.0,0.22,20.6), villaSlabMat);
+    roofLower.position.set(xSide*7.2, 3.5, 0); g.add(roofLower); fadeMeshes.push(roofLower);
+    const roofUpper=new THREE.Mesh(new THREE.BoxGeometry(5.0,0.22,13.8), villaSlabMat);
+    roofUpper.position.set(xSide*7.55, 5.95, -1.5); g.add(roofUpper); fadeMeshes.push(roofUpper);
+    // ground-floor glass wall facing the alley: warm-lit panes with slab mullions
+    for(let z=-8;z<=8;z+=3.3){
+      const lit=Math.random()<0.75;
+      const winMat=new THREE.MeshStandardMaterial({
+        color: lit?0xffd9a3:0x2a3b52, emissive: lit?0xffbe72:0x101c2c, emissiveIntensity: lit?1.15:0.25, roughness:0.35
+      });
+      const win=new THREE.Mesh(new THREE.PlaneGeometry(2.4,2.4), winMat);
+      win.position.set(xSide*7.2 - xSide*2.26, 1.75, z);
+      win.rotation.y = xSide>0?-Math.PI/2:Math.PI/2;
+      g.add(win); fadeMeshes.push(win);
+    }
+    // upper-floor cool recessed-spot cove under the soffit
+    const cove=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,12.5),
+      new THREE.MeshStandardMaterial({color:0x0a0a0a, emissive:0xcfe4ff, emissiveIntensity:1.3}));
+    cove.position.set(xSide*7.55 - xSide*2.28, 4.65, -1.5);
+    g.add(cove); fadeMeshes.push(cove);
+    worldGroup.add(g);
+  }
+  buildHouse(-1); buildHouse(1);
+
+  // globe path lamps (bollards) along the walkway edges, from the reference render
+  const bollardPostMat=new THREE.MeshStandardMaterial({color:0x14161a, roughness:0.5});
+  const bollardGlobeMat=new THREE.MeshStandardMaterial({color:0xf5f2e8, emissive:0xfff4d6, emissiveIntensity:1.5});
+  for(let z=-8;z<=8;z+=4){
+    [-3.35,3.35].forEach(function(x){
+      const post=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.11,0.85,8), bollardPostMat);
+      post.position.set(x,0.43,z); worldGroup.add(post); fadeMeshes.push(post);
+      const globe=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,10), bollardGlobeMat);
+      globe.position.set(x,0.98,z); worldGroup.add(globe); fadeMeshes.push(globe);
+    });
+  }
+  // low planter hedges replacing the old dumpster clutter
+  const hedgeMat=new THREE.MeshStandardMaterial({color:0x2e5c34, roughness:1});
+  [[-2.8,-8.6],[2.8,-8.6],[-2.8,8.6],[2.8,8.6]].forEach(function(pz){
+    const hedge=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.5,0.6), hedgeMat);
+    hedge.position.set(pz[0],0.25,pz[1]); worldGroup.add(hedge); fadeMeshes.push(hedge);
+  });
+
+  // ---- glass canopy (barrel-vault arch over the walkway) ----
+  const tunnelRadius=4.6, tunnelLen=22;
+  const tunnelGeo=new THREE.CylinderGeometry(tunnelRadius,tunnelRadius,tunnelLen,32,1,true,Math.PI,Math.PI);
+  const tunnelMat=new THREE.MeshStandardMaterial({color:0xa8c4d8, roughness:0.12, metalness:0.1,
+    emissive:0x2a3c50, emissiveIntensity:0.3, transparent:true, opacity:0.3, side:THREE.DoubleSide});
+  const tunnel=new THREE.Mesh(tunnelGeo, tunnelMat);
+  tunnel.rotation.x=Math.PI/2; tunnel.position.y=0; worldGroup.add(tunnel);
+  const tunnelEdgeMat=new THREE.MeshStandardMaterial({color:0x22252a, roughness:0.7});
+  [-tunnelLen/2,tunnelLen/2].forEach(function(z){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(tunnelRadius,0.06,8,32,Math.PI), tunnelEdgeMat);
+    ring.position.set(0,0,z); worldGroup.add(ring);
+  });
+
+  const stripMat=new THREE.MeshStandardMaterial({color:0x0a0a0a, emissive:0x6fb4ff, emissiveIntensity:0.8});
+  for(let z=-9;z<=9;z+=3){
+    const strip=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.05,1.6), stripMat);
+    strip.position.set(-tunnelRadius*0.72, tunnelRadius*0.78, z);
+    worldGroup.add(strip);
+    const strip2=strip.clone(); strip2.position.x=tunnelRadius*0.72; worldGroup.add(strip2);
+  }
+
+  // ---- sensor gate ----
+  const gateGroup=new THREE.Group(); worldGroup.add(gateGroup);
+  const gateMat=new THREE.MeshStandardMaterial({color:0x454b52, metalness:0.75, roughness:0.3});
+  const pillarGeo=new THREE.BoxGeometry(0.26,4.2,0.26);
+  const pillarL=new THREE.Mesh(pillarGeo, gateMat); pillarL.position.set(-2.6,2.1,0); gateGroup.add(pillarL);
+  const pillarR=new THREE.Mesh(pillarGeo, gateMat); pillarR.position.set(2.6,2.1,0); gateGroup.add(pillarR);
+  const topBarMesh=new THREE.Mesh(new THREE.BoxGeometry(5.46,0.26,0.26), gateMat); topBarMesh.position.set(0,4.2,0); gateGroup.add(topBarMesh);
+
+  const camHousing=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.34,12), new THREE.MeshStandardMaterial({color:0x1c1e22, metalness:0.6, roughness:0.4}));
+  camHousing.rotation.x=Math.PI/2; camHousing.position.set(0,4.05,-0.2); gateGroup.add(camHousing);
+  const camLensMat=new THREE.MeshStandardMaterial({color:0x0a0a0c, emissive:0x3987e5, emissiveIntensity:0.05, metalness:0.9, roughness:0.15});
+  const camLens=new THREE.Mesh(new THREE.SphereGeometry(0.1,12,12), camLensMat);
+  camLens.position.set(0,4.05,-0.38); gateGroup.add(camLens);
+  const camRing=new THREE.Mesh(new THREE.TorusGeometry(0.12,0.02,8,20), new THREE.MeshStandardMaterial({color:0x111, emissive:0x3987e5, emissiveIntensity:0.05}));
+  camRing.position.copy(camLens.position); gateGroup.add(camRing);
+
+  const heatDots=[];
+  const heatDotMat0=new THREE.MeshStandardMaterial({color:0x1a1a1a, emissive:0xeb6834, emissiveIntensity:0.05});
+  for(let i=0;i<6;i++){
+    const s=new THREE.Mesh(new THREE.SphereGeometry(0.065,8,8), heatDotMat0.clone());
+    s.position.set(-2.1+i*0.84, 4.05, 0.05);
+    gateGroup.add(s); heatDots.push(s);
+  }
+
+  const grilleTex=canvasTexture(24,24,function(ctx,w,h){
+    ctx.fillStyle='#111214'; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='#2c2f33';
+    for(let y=2;y<h;y+=4) for(let x=2;x<w;x+=4) { ctx.beginPath(); ctx.arc(x,y,1,0,7); ctx.fill(); }
+  });
+  const micBody=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.32,0.14), new THREE.MeshStandardMaterial({map:grilleTex, metalness:0.5, roughness:0.5}));
+  micBody.position.set(-2.6,3.0,0.2); gateGroup.add(micBody);
+  const micRingMat=new THREE.MeshStandardMaterial({color:0x111, emissive:0x199e70, emissiveIntensity:0.05});
+  const micRing=new THREE.Mesh(new THREE.TorusGeometry(0.15,0.02,8,20), micRingMat);
+  micRing.position.set(-2.6,3.0,0.29); gateGroup.add(micRing);
+
+  // particle (VOC) sensor module — small vented housing on the opposite pillar
+  const partVentTex=canvasTexture(16,16,function(ctx,w,h){
+    ctx.fillStyle='#14140f'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#3a3a24'; ctx.lineWidth=1;
+    for(let y=2;y<h;y+=3){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  });
+  const partBody=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.26,0.14), new THREE.MeshStandardMaterial({map:partVentTex, roughness:0.6}));
+  partBody.position.set(2.6,3.3,0.2); gateGroup.add(partBody);
+  const partRingMat=new THREE.MeshStandardMaterial({color:0x111, emissive:0xb7ad2c, emissiveIntensity:0.05});
+  const partRing=new THREE.Mesh(new THREE.TorusGeometry(0.13,0.02,8,20), partRingMat);
+  partRing.position.set(2.6,3.3,0.29); gateGroup.add(partRing);
+
+  const GATE_Z_MIN=-1.3, GATE_Z_MAX=1.3;
+
+  function makeLamp(mats, position, color){
+    const light=new THREE.PointLight(color, 0, 4, 2);
+    light.position.copy(position);
+    scene.add(light);
+    return {mats:mats, light:light, current:0, target:0};
+  }
+  const camLamp=makeLamp([camLensMat,camRing.material], camLens.position, 0x3987e5);
+  const heatLamp=makeLamp(heatDots.map(function(d){return d.material;}), new THREE.Vector3(0,4.05,0.2), 0xeb6834);
+  const micLamp=makeLamp([micRingMat], micRing.position, 0x199e70);
+  const partLamp=makeLamp([partRingMat], partRing.position, 0xb7ad2c);
+
+  function updateLamp(lamp,dt){
+    lamp.current=THREE.MathUtils.lerp(lamp.current, lamp.target, Math.min(dt*4,1));
+    lamp.light.intensity=lamp.current*1.8;
+    lamp.mats.forEach(function(m){ m.emissiveIntensity=0.05+lamp.current*2.0; });
+  }
+
+  // ---- particle puff effect (VOC spike visualization) ----
+  const puffs=[];
+  function spawnParticlePuff(pos){
+    const n=PUFF_PARTICLES;
+    const geo=new THREE.BufferGeometry();
+    const positions=new Float32Array(n*3);
+    const vel=[];
+    for(let i=0;i<n;i++){
+      positions[i*3]=pos.x; positions[i*3+1]=pos.y; positions[i*3+2]=pos.z;
+      vel.push(new THREE.Vector3(rand(-0.4,0.4), rand(0.3,0.9), rand(-0.4,0.4)));
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    const mat=new THREE.PointsMaterial({color:0xc7bd3a, size:0.12, transparent:true, opacity:0.85});
+    const pts=new THREE.Points(geo,mat);
+    worldGroup.add(pts);
+    puffs.push({pts:pts, vel:vel, age:0});
+  }
+  function updatePuffs(dt){
+    for(let i=puffs.length-1;i>=0;i--){
+      const puff=puffs[i];
+      puff.age+=dt;
+      const posAttr=puff.pts.geometry.attributes.position;
+      for(let j=0;j<puff.vel.length;j++){
+        posAttr.array[j*3]+=puff.vel[j].x*dt;
+        posAttr.array[j*3+1]+=puff.vel[j].y*dt;
+        posAttr.array[j*3+2]+=puff.vel[j].z*dt;
+      }
+      posAttr.needsUpdate=true;
+      puff.pts.material.opacity=Math.max(0,0.85-puff.age*0.55);
+      if(puff.age>1.6){
+        worldGroup.remove(puff.pts); puff.pts.geometry.dispose(); puff.pts.material.dispose();
+        puffs.splice(i,1);
+      }
+    }
+  }
+
+  // ---- resize ----
+  function resize(){
+    const w=canvas.clientWidth||1, h=canvas.clientHeight||1;
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  if(typeof ResizeObserver!=='undefined'){ new ResizeObserver(resize).observe(canvas.parentElement); }
+
+  // =========================================================
+  // PEOPLE — humanoid rig, timeline-based spawn + tunnel crossing
+  // =========================================================
+  const PERSON_COLORS=[0x3987e5,0x199e70,0x9085e9,0x8a94a3,0xd9773f];
+  const people=[];
+  let personSeq=0;
+  let nextSpawnAt=1.0;
+  const TUNNEL_ENTER=-9.5, TUNNEL_EXIT=9.5;
+
+  function buildPerson(heightM, clothColor){
+    const group=new THREE.Group();
+    const legLen=heightM*0.47, torsoLen=heightM*0.32, headR=heightM*0.075;
+    const hipY=legLen, shoulderY=hipY+torsoLen;
+    const legR=heightM*0.055, armR=heightM*0.042;
+    const clothMat=new THREE.MeshStandardMaterial({color:clothColor, roughness:0.7});
+    const skinMat=new THREE.MeshStandardMaterial({color:0xdba876, roughness:0.6});
+
+    function limb(pivotY, xOff, len, r, mat){
+      const pivot=new THREE.Group(); pivot.position.set(xOff,pivotY,0);
+      const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(r, len*0.7, 3, 6), mat);
+      mesh.position.y=-len/2;
+      pivot.add(mesh); group.add(pivot);
+      return pivot;
+    }
+    const legL=limb(hipY, heightM*0.09, legLen, legR, clothMat);
+    const legR_=limb(hipY, -heightM*0.09, legLen, legR, clothMat);
+    const armL=limb(shoulderY, heightM*0.17, torsoLen*0.85, armR, skinMat);
+    const armR_=limb(shoulderY, -heightM*0.17, torsoLen*0.85, armR, skinMat);
+
+    const torso=new THREE.Mesh(new THREE.BoxGeometry(heightM*0.24,torsoLen,heightM*0.15), clothMat);
+    torso.position.y=hipY+torsoLen/2; group.add(torso);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(headR,10,10), skinMat);
+    head.position.y=shoulderY+headR*1.4; group.add(head);
+
+    group.userData.legL=legL; group.userData.legR=legR_; group.userData.armL=armL; group.userData.armR=armR_;
+    group.userData.mats=[clothMat,skinMat];
+    group.userData.hipY=hipY;
+    return group;
+  }
+
+  function spawnPerson(){
+    const heightCm=Math.round(rand(150,195));
+    const heightM=heightCm/100;
+    const color=PERSON_COLORS[personSeq%PERSON_COLORS.length];
+    const group=buildPerson(heightM, color);
+    worldGroup.add(group);
+    const p={
+      id:'P'+(personSeq++), tSpawn:nowSec(), duration:rand(5,8), laneOffset:rand(-1.7,1.7),
+      heightCm:heightCm, bpm:Math.round(rand(58,104)), breath:Math.round(rand(11,19)),
+      group:group, walkPhase:Math.random()*10, vocCooldown:rand(1.5,4), inGate:false
+    };
+    people.push(p);
+  }
+
+  function disposePerson(p){
+    worldGroup.remove(p.group);
+    p.group.traverse(function(o){ if(o.isMesh){ o.geometry.dispose(); } });
+    p.group.userData.mats.forEach(function(m){ m.dispose(); });
+  }
+
+  function updatePeople(dt){
+    const t=nowSec();
+    if(t>=nextSpawnAt && people.length<MAX_PEOPLE){ spawnPerson(); nextSpawnAt=t+rand(1.3,4.2); }
+    for(let i=people.length-1;i>=0;i--){
+      const p=people[i];
+      const f=(t-p.tSpawn)/p.duration;
+      if(f>=1){
+        if(p.inGate){ p.inGate=false; log(p.id+' exited — capture complete (BPM '+p.bpm+', '+p.breath+'/min)','complete'); }
+        disposePerson(p); people.splice(i,1); continue;
+      }
+      const z=THREE.MathUtils.lerp(TUNNEL_ENTER, TUNNEL_EXIT, f);
+      p.group.position.set(p.laneOffset,0,z);
+      p.walkPhase += dt*(6/p.duration)*4.5;
+      const s=Math.sin(p.walkPhase);
+      p.group.userData.legL.rotation.x=s*0.55; p.group.userData.legR.rotation.x=-s*0.55;
+      p.group.userData.armL.rotation.x=-s*0.4; p.group.userData.armR.rotation.x=s*0.4;
+
+      const wasIn=p.inGate;
+      p.inGate = z>=GATE_Z_MIN && z<=GATE_Z_MAX;
+      if(p.inGate && !wasIn) log(p.id+' detected in gate — H:'+p.heightCm+'cm','detect');
+      if(!p.inGate && wasIn) log(p.id+' left gate volume','complete');
+
+      // particle/VOC emission — occasional random spike per person while nearby the gate
+      if(isConnected('PART') && Math.abs(z)<3.5){
+        p.vocCooldown -= dt;
+        if(p.vocCooldown<=0 && Math.random()<dt*0.3){
+          vocLevel=Math.min(1, vocLevel+rand(0.55,0.95));
+          log('VOC spike near '+p.id+' — organic compound detected','voc');
+          spawnParticlePuff(new THREE.Vector3(p.laneOffset, p.group.userData.hipY, z));
+          p.vocCooldown=rand(3.5,7);
+        }
+      }
+    }
+  }
+
+  // =========================================================
+  // SENSOR ENGINE — heatmap + mic waveform + VOC + stats
+  // =========================================================
+  const heatCanvas=document.getElementById('heatCanvas');
+  const heatCtx=heatCanvas.getContext('2d');
+  const HEAT_COLS=32, HEAT_ROWS=18;
+  const cellW=heatCanvas.width/HEAT_COLS, cellH=heatCanvas.height/HEAT_ROWS;
+
+  function lerpC(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+  const HEAT_STOPS=[ [0,[20,17,16]], [0.35,[92,40,20]], [0.65,[216,89,38]], [1,[255,210,120]] ];
+  function heatColor(t){
+    t=Math.max(0,Math.min(1,t));
+    for(let i=0;i<HEAT_STOPS.length-1;i++){
+      const a=HEAT_STOPS[i], b=HEAT_STOPS[i+1];
+      if(t>=a[0]&&t<=b[0]){
+        const lt=(t-a[0])/(b[0]-a[0]||1);
+        const c=lerpC(a[1],b[1],lt);
+        return 'rgb('+(c[0]|0)+','+(c[1]|0)+','+(c[2]|0)+')';
+      }
+    }
+    return 'rgb(20,17,16)';
+  }
+  function activePeople(){ return people.filter(function(p){ return p.inGate; }); }
+
+  let heatMaxLive=0;
+  function drawHeatmap(){
+    const on=isConnected('HEAT');
+    const chaos=Math.min(1, people.length/4);
+    const active=activePeople();
+    const t=nowSec();
+    let maxV=0;
+    for(let gy=0;gy<HEAT_ROWS;gy++){
+      for(let gx=0;gx<HEAT_COLS;gx++){
+        let v=0;
+        if(on){
+          for(let i=0;i<active.length;i++){
+            const p=active[i];
+            const px=THREE.MathUtils.mapLinear(p.laneOffset,-2.2,2.2,1,HEAT_COLS-2);
+            const headFrac=(p.heightCm-150)/45;
+            const py=HEAT_ROWS-2-headFrac*9;
+            const flick=0.85+0.15*Math.sin(t*3+i*2.1);
+            const dx=gx-px, dy=gy-py;
+            v+=flick*Math.exp(-(dx*dx)/(2*3.0*3.0) - (dy*dy)/(2*4.2*4.2));
+          }
+          v += (Math.random()-0.5)*0.05*(1+chaos);
+        } else { v = Math.random()*0.06; }
+        if(v>maxV) maxV=v;
+        heatCtx.fillStyle=heatColor(v/1.15);
+        heatCtx.fillRect(gx*cellW, gy*cellH, cellW+0.5, cellH+0.5);
+      }
+    }
+    heatMaxLive=maxV;
+  }
+
+  const micCanvas=document.getElementById('micCanvas');
+  const micCtx=micCanvas.getContext('2d');
+  const MIC_SAMPLES=200;
+  const breathBuf=new Float32Array(MIC_SAMPLES);
+  const heartBuf=new Float32Array(MIC_SAMPLES);
+  let micPtr=0;
+
+  function stepMic(){
+    const on=isConnected('MIC');
+    const active=activePeople();
+    const t=nowSec();
+    let breathV=0, heartV=0;
+    if(on){
+      const chaos=Math.min(1, people.length/4);
+      if(active.length>0){
+        active.forEach(function(p){
+          breathV += 0.6*Math.sin(2*Math.PI*(p.breath/60)*t) / active.length;
+          heartV  += 0.6*Math.sin(2*Math.PI*(p.bpm/60)*t) / active.length;
+        });
+      } else { breathV = 0.08*Math.sin(2*Math.PI*0.2*t); }
+      breathV += (Math.random()-0.5)*0.06*(1+chaos);
+      heartV  += (Math.random()-0.5)*0.08*(1+chaos);
+    } else { breathV=(Math.random()-0.5)*0.5; heartV=(Math.random()-0.5)*0.5; }
+    breathBuf[micPtr]=breathV; heartBuf[micPtr]=heartV;
+    micPtr=(micPtr+1)%MIC_SAMPLES;
+  }
+  function drawMic(){
+    micCtx.clearRect(0,0,micCanvas.width,micCanvas.height);
+    micCtx.strokeStyle='#20221f'; micCtx.lineWidth=1;
+    micCtx.beginPath(); micCtx.moveTo(0,micCanvas.height/2); micCtx.lineTo(micCanvas.width,micCanvas.height/2); micCtx.stroke();
+    drawWave(breathBuf, getCssVar('--s1'), micCanvas.height*0.5, micCanvas.height*0.38);
+    drawWave(heartBuf, getCssVar('--s2'), micCanvas.height*0.5, micCanvas.height*0.34);
+  }
+  function drawWave(buf,color,midY,amp){
+    micCtx.beginPath();
+    for(let i=0;i<MIC_SAMPLES;i++){
+      const idx=(micPtr+i)%MIC_SAMPLES;
+      const x=(i/MIC_SAMPLES)*micCanvas.width;
+      const y=midY - buf[idx]*amp;
+      if(i===0) micCtx.moveTo(x,y); else micCtx.lineTo(x,y);
+    }
+    micCtx.strokeStyle=color; micCtx.lineWidth=1.6; micCtx.stroke();
+  }
+  let cssVarCache={};
+  function getCssVar(name){
+    if(!cssVarCache[name]) cssVarCache[name]=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return cssVarCache[name];
+  }
+
+  let vocLevel=0;
+  function stepVoc(dt){ vocLevel=Math.max(0, vocLevel-dt*0.4); }
+
+  const statHeightEl=document.getElementById('statHeight');
+  const statBpmEl=document.getElementById('statBpm');
+  const statBreathEl=document.getElementById('statBreath');
+  const statHeatEl=document.getElementById('statHeat');
+  const vocFillEl=document.getElementById('vocFill');
+  const vocReadoutEl=document.getElementById('vocReadout');
+  const hudCamText=document.getElementById('hudCamText');
+  const hudHeatText=document.getElementById('hudHeatText');
+  const hudMicText=document.getElementById('hudMicText');
+  const hudPartText=document.getElementById('hudPartText');
+  const hudCamRow=document.getElementById('hudCam');
+  const hudHeatRow=document.getElementById('hudHeat');
+  const hudMicRow=document.getElementById('hudMic');
+  const hudPartRow=document.getElementById('hudPart');
+  const inferListEl=document.getElementById('inferList');
+  const inferBadgeEl=document.getElementById('inferBadge');
+  const inferToastEl=document.getElementById('inferToast');
+
+  // ---- sensor fusion: combine wired streams into human-readable inferences ----
+  function evaluateInferences(active, camOn, heatOn, micOn, partOn){
+    const out=[];
+    const first=active[0];
+    // VOC spikes fire while a person is NEAR the gate (|z|<3.5), not necessarily
+    // inside it — so match against proximity, not strict gate occupancy.
+    const nearGate=people.some(function(p){ return Math.abs(p.group.position.z)<4; });
+    if(heatOn && partOn && vocLevel>0.25 && nearGate){
+      out.push({key:'fart', conf:Math.min(97, Math.round(55+vocLevel*45))});
+    }
+    if(partOn && vocLevel>0.12 && !nearGate){
+      out.push({key:'residual', conf:Math.min(85, Math.round(50+vocLevel*40))});
+    }
+    if(micOn && first && first.bpm>92){
+      out.push({key:'workout', conf:Math.min(90, Math.round(50+(first.bpm-92)*2.5))});
+    }
+    if(camOn && first && first.heightCm>=186){
+      out.push({key:'tall', conf:72});
+    }
+    if(micOn && active.length>=2){
+      out.push({key:'group', conf:80});
+    }
+    if(out.length===0 && first && (camOn||heatOn||micOn||partOn)){
+      out.push({key:'calm', conf:0});
+    }
+    out.sort(function(a,b){ return b.conf-a.conf; });
+    return out.slice(0,3);
+  }
+
+  function renderInferences(inferences){
+    while(inferListEl.firstChild) inferListEl.removeChild(inferListEl.firstChild);
+    if(inferences.length===0){
+      const row=document.createElement('div'); row.className='inferRow';
+      row.textContent = currentLang==='ko' ? '센서 연결 대기 중 — 배선을 완료하세요' : 'Awaiting sensors — complete the wiring';
+      inferListEl.appendChild(row);
+      inferBadgeEl.textContent='--'; inferBadgeEl.classList.remove('on'); inferBadgeEl.classList.add('off');
+      inferToastEl.classList.add('hidden');
+      return;
+    }
+    inferBadgeEl.textContent=inferences.length+'×'; inferBadgeEl.classList.add('on'); inferBadgeEl.classList.remove('off');
+    inferences.forEach(function(inf,i){
+      const s=INFER_STRINGS[inf.key];
+      const row=document.createElement('div'); row.className='inferRow'+(i===0?' top':'');
+      const em=document.createElement('span'); em.className='emoji'; em.textContent=s.emoji;
+      const tx=document.createElement('span'); tx.className='txt'; tx.textContent=s[currentLang];
+      row.appendChild(em); row.appendChild(tx);
+      if(inf.conf>0){ const cf=document.createElement('span'); cf.className='conf'; cf.textContent=inf.conf+'%'; row.appendChild(cf); }
+      inferListEl.appendChild(row);
+    });
+    // toast: surface the top non-trivial inference over the 3D view (mobile-visible)
+    const top=inferences[0];
+    if(top.key!=='calm' && top.conf>0){
+      const s=INFER_STRINGS[top.key];
+      inferToastEl.textContent='';
+      inferToastEl.appendChild(document.createTextNode(s.emoji+' '+s[currentLang]));
+      const cf=document.createElement('span'); cf.className='conf'; cf.textContent=top.conf+'%';
+      inferToastEl.appendChild(cf);
+      inferToastEl.classList.remove('hidden');
+    } else {
+      inferToastEl.classList.add('hidden');
+    }
+  }
+
+  function updateStats(){
+    const active=activePeople();
+    const camOn=isConnected('CAM'), heatOn=isConnected('HEAT'), micOn=isConnected('MIC'), partOn=isConnected('PART');
+    const L=LIVE[currentLang];
+
+    [[hudCamRow,camOn],[hudHeatRow,heatOn],[hudMicRow,micOn],[hudPartRow,partOn]].forEach(function(pair){
+      pair[0].classList.toggle('live', pair[1]);
+      pair[0].querySelector('.swatch').classList.toggle('on', pair[1] && active.length>0);
+    });
+
+    const first=active[0];
+    const heightStr = (camOn && first) ? (first.heightCm+Math.round((Math.random()-0.5)*2))+' cm' : null;
+    const bpmStr = (micOn && first) ? (first.bpm+Math.round((Math.random()-0.5)*3))+' bpm' : null;
+    const breathStr = (micOn && first) ? first.breath+'/min' : null;
+    const heatStr = heatOn ? Math.round(heatMaxLive*100)+'%' : null;
+    const vocStr = partOn ? Math.round(vocLevel*380)+' ppb' : null;
+
+    // HUD chips carry the actual live values so mobile users see everything at a glance
+    hudCamText.textContent = camOn ? (heightStr || L.live) : L.off;
+    hudHeatText.textContent = heatOn ? ((first?heatStr:null) || L.live) : L.off;
+    hudMicText.textContent = micOn ? (bpmStr ? bpmStr+' · '+breathStr : L.live) : L.off;
+    hudPartText.textContent = partOn ? (vocLevel>0.05 ? vocStr : L.live) : L.off;
+
+    statHeightEl.textContent = heightStr || '-- cm';
+    statBpmEl.textContent = bpmStr ? bpmStr.replace(' bpm','') : '--';
+    statBreathEl.textContent = breathStr ? breathStr.replace('/min',' /min') : '-- /min';
+    statHeatEl.textContent = heatStr || '--';
+
+    vocFillEl.style.width = partOn ? Math.round(vocLevel*100)+'%' : '0%';
+    vocReadoutEl.textContent = vocStr || '-- ppb';
+
+    renderInferences(evaluateInferences(active, camOn, heatOn, micOn, partOn));
+
+    camLamp.target = (camOn && active.length>0)?1:0;
+    heatLamp.target = (heatOn && active.length>0)?1:0;
+    micLamp.target = (micOn && active.length>0)?1:0;
+    partLamp.target = (partOn && vocLevel>0.05)?1:0;
+  }
+
+  // =========================================================
+  // CAMERA VIEW SYSTEM — multiple angles, smooth transitions
+  // =========================================================
+  const ORBIT_RADIUS=25, ORBIT_HEIGHT=16.5, ORBIT_CENTER=0.78, ORBIT_SWING=0.32;
+  function autoPreset(){
+    const angle=ORBIT_CENTER + ORBIT_SWING*Math.sin(elapsed*0.06);
+    return {pos:new THREE.Vector3(ORBIT_RADIUS*Math.sin(angle), ORBIT_HEIGHT, ORBIT_RADIUS*Math.cos(angle)), target:new THREE.Vector3(0,3.2,0)};
+  }
+  const VIEW_PRESETS={
+    top:{pos:new THREE.Vector3(0.01,42,0.01), target:new THREE.Vector3(0,0,0)},
+    gate:{pos:new THREE.Vector3(0,3.6,-13), target:new THREE.Vector3(0,3,-1)},
+    side:{pos:new THREE.Vector3(30,9,0), target:new THREE.Vector3(0,3,0)}
+  };
+  let activeView='auto';
+  let viewTransition=null;
+  const camViewsEl=document.getElementById('camViews');
+  function switchView(name){
+    if(revealPhase!=='sim') return;
+    const from={pos:camera.position.clone(), target:camTarget.clone()};
+    const to=(name==='auto')?autoPreset():VIEW_PRESETS[name];
+    viewTransition={from:from,to:to,t:0,duration:1.1};
+    activeView=name;
+    viewedViews.add(name);
+    camViewsEl.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b.dataset.view===name); });
+    checkProgress();
+  }
+  camViewsEl.querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click', function(){ switchView(b.dataset.view); });
+  });
+
+  // =========================================================
+  // REVEAL SEQUENCE — privacy message -> vessel morph -> wrist pull-back -> credits
+  // =========================================================
+  let revealPhase='sim'; let revealT=0;
+  const revealOverlayEl=document.getElementById('revealOverlay');
+  const revealTextA=document.getElementById('revealTextA');
+  const revealTextB=document.getElementById('revealTextB');
+  const revealCaptionEl=document.getElementById('revealCaption');
+  const btnRestart=document.getElementById('btnRestart');
+  const dashboardEl=document.getElementById('dashboard');
+
+  // blood-cell particle flow, used during the vessel morph
+  const BLOOD_COUNT=70;
+  const bloodGeo=new THREE.BufferGeometry();
+  const bloodPos=new Float32Array(BLOOD_COUNT*3);
+  for(let i=0;i<BLOOD_COUNT;i++){ bloodPos[i*3]=rand(-2,2); bloodPos[i*3+1]=rand(0.4,3.6); bloodPos[i*3+2]=rand(-10,10); }
+  bloodGeo.setAttribute('position', new THREE.BufferAttribute(bloodPos,3));
+  const bloodMat=new THREE.PointsMaterial({color:0xff3b3b, size:0.4, transparent:true, opacity:0});
+  const bloodPoints=new THREE.Points(bloodGeo,bloodMat);
+  worldGroup.add(bloodPoints);
+  function updateBlood(dt){
+    if(bloodMat.opacity<=0) return;
+    const pos=bloodGeo.attributes.position;
+    for(let i=0;i<BLOOD_COUNT;i++){
+      pos.array[i*3+2]+=dt*4.5;
+      if(pos.array[i*3+2]>10) pos.array[i*3+2]=-10;
+    }
+    pos.needsUpdate=true;
+  }
+
+  // procedural wrist + smartwatch, hidden until the closing reveal
+  const wristGroup=new THREE.Group();
+  wristGroup.visible=false; wristGroup.scale.setScalar(0.001);
+  scene.add(wristGroup);
+  const skinWristMat=new THREE.MeshStandardMaterial({color:0xd9a878, roughness:0.65});
+  const forearm=new THREE.Mesh(new THREE.CylinderGeometry(1.6,2.1,10,20), skinWristMat);
+  forearm.rotation.x=Math.PI/2; forearm.position.set(0,0,-3); wristGroup.add(forearm);
+  const hand=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.6,3.4,20), skinWristMat);
+  hand.rotation.x=Math.PI/2; hand.position.set(0,0,3.6); wristGroup.add(hand);
+  const bandMat=new THREE.MeshStandardMaterial({color:0x1c1e22, roughness:0.5});
+  const band=new THREE.Mesh(new THREE.TorusGeometry(1.75,0.5,16,32), bandMat);
+  band.position.set(0,0,0); wristGroup.add(band);
+  const watchFaceTex=canvasTexture(64,64,function(ctx,w,h){
+    ctx.fillStyle='#05070a'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#ff5b5b'; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(4,32); ctx.lineTo(20,32); ctx.lineTo(26,12); ctx.lineTo(34,52); ctx.lineTo(40,32); ctx.lineTo(60,32); ctx.stroke();
+  });
+  // Face normal stays on the default +Y axis (no rotation) so it sits on TOP of
+  // the band, facing up toward the closing camera — like glancing down at a watch.
+  const watchFace=new THREE.Mesh(new THREE.CylinderGeometry(1.55,1.55,0.35,28),
+    new THREE.MeshStandardMaterial({map:watchFaceTex, emissive:0x552222, emissiveIntensity:0.6, roughness:0.3}));
+  watchFace.position.set(0,2.15,0); wristGroup.add(watchFace);
+
+  function beginMorph(){
+    dashboardEl.classList.add('dimmed');
+    camViewsEl.classList.add('hidden');
+    revealMorphStart={
+      tunnelColor:tunnelMat.color.clone(), tunnelEmissive:tunnelMat.emissive.clone(),
+      tunnelOpacity:tunnelMat.opacity,
+      fogColor:scene.fog.color.clone(), bgColor:scene.background.clone()
+    };
+    tunnelMat.transparent=true;
+    fadeMeshes.forEach(function(m){ if(m.material){ m.material.transparent=true; } });
+  }
+  const MORPH_TARGET_TUNNEL=new THREE.Color(0x8a1020);
+  const MORPH_TARGET_EMISSIVE=new THREE.Color(0x4a0810);
+  const MORPH_TARGET_FOG=new THREE.Color(0x1c0508);
+  const MORPH_TARGET_BG=new THREE.Color(0x140406);
+  let revealMorphStart=null;
+  const MORPH_DURATION=5.5, PULLBACK_DURATION=6.0;
+
+  function applyMorph(t){
+    const ease=t*t*(3-2*t);
+    tunnelMat.color.lerpColors(revealMorphStart.tunnelColor, MORPH_TARGET_TUNNEL, ease);
+    tunnelMat.emissive.lerpColors(revealMorphStart.tunnelEmissive, MORPH_TARGET_EMISSIVE, ease);
+    tunnelMat.emissiveIntensity=0.35+ease*0.9;
+    // glass canopy solidifies into a vessel wall as it turns red
+    tunnelMat.opacity=THREE.MathUtils.lerp(revealMorphStart.tunnelOpacity, 0.82, ease);
+    scene.fog.color.lerpColors(revealMorphStart.fogColor, MORPH_TARGET_FOG, ease);
+    scene.background.lerpColors(revealMorphStart.bgColor, MORPH_TARGET_BG, ease);
+    fadeMeshes.forEach(function(m){ if(m.material){ m.material.opacity=1-ease; } });
+    bloodMat.opacity=ease*0.9;
+    if(ease>=1){ fadeMeshes.forEach(function(m){ m.visible=false; }); }
+  }
+
+  let pullbackFromPos=null, pullbackFromTarget=null;
+  const pullbackToPos=new THREE.Vector3(13,17,21), pullbackToTarget=new THREE.Vector3(0,1,0);
+  function beginPullback(){
+    pullbackFromPos=camera.position.clone(); pullbackFromTarget=camTarget.clone();
+    wristGroup.visible=true;
+  }
+
+  function showText(el,str){ el.textContent=str; requestAnimationFrame(function(){ el.classList.add('show'); }); }
+  function hideText(el){ el.classList.remove('show'); }
+
+  function startRevealSequence(){
+    revealPhase='message'; revealT=0;
+    inferToastEl.classList.add('hidden');
+    revealOverlayEl.classList.remove('hidden');
+    showText(revealTextA, I18N[currentLang].revealMsgA);
+  }
+  revealBtnEl.addEventListener('click', function(){
+    if(revealPhase!=='sim') return;
+    revealBtnEl.classList.add('hidden');
+    startRevealSequence();
+  });
+  btnRestart.addEventListener('click', function(){ location.reload(); });
+
+  // =========================================================
+  // RENDER LOOP
+  // =========================================================
+  const clock=new THREE.Clock();
+  let elapsed=0;
+  let statThrottle=0;
+  let frameCounter=0;
+
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt=Math.min(clock.getDelta(),0.05);
+    elapsed+=dt;
+    updatePuffs(dt);
+    updateBlood(dt);
+
+    if(revealPhase==='sim'){
+      updatePeople(dt);
+      stepVoc(dt);
+      stepMic();
+      frameCounter++;
+      // 2D-canvas panels are the main CPU cost on weak phones — skip frames there
+      if(frameCounter%HEATMAP_FRAME_SKIP===0) drawHeatmap();
+      if(!IS_MOBILE || frameCounter%2===0) drawMic();
+      statThrottle+=dt;
+      if(statThrottle>0.15){ updateStats(); statThrottle=0; }
+    }
+
+    updateLamp(camLamp,dt); updateLamp(heatLamp,dt); updateLamp(micLamp,dt); updateLamp(partLamp,dt);
+
+    // ---- camera ----
+    if(revealPhase==='sim'){
+      if(viewTransition){
+        viewTransition.t+=dt/viewTransition.duration;
+        const tt=Math.min(1,viewTransition.t);
+        const ease=tt*tt*(3-2*tt);
+        camera.position.lerpVectors(viewTransition.from.pos, viewTransition.to.pos, ease);
+        camTarget.lerpVectors(viewTransition.from.target, viewTransition.to.target, ease);
+        camera.lookAt(camTarget);
+        if(tt>=1) viewTransition=null;
+      } else if(activeView==='auto'){
+        const p=autoPreset(); camera.position.copy(p.pos); camTarget.copy(p.target); camera.lookAt(camTarget);
+      } else {
+        const p=VIEW_PRESETS[activeView]; camera.position.copy(p.pos); camTarget.copy(p.target); camera.lookAt(camTarget);
+      }
+    } else if(revealPhase==='message'){
+      revealT+=dt;
+      if(revealT>4.6){ hideText(revealTextA); revealPhase='morph'; revealT=0; beginMorph(); }
+    } else if(revealPhase==='morph'){
+      revealT+=dt;
+      if(revealT>0.3 && !revealCaptionEl.classList.contains('show')){ showText(revealCaptionEl, I18N[currentLang].revealCaption); }
+      const t=Math.min(revealT/MORPH_DURATION,1);
+      applyMorph(t);
+      if(t>=1){ revealPhase='pullback'; revealT=0; beginPullback(); }
+    } else if(revealPhase==='pullback'){
+      revealT+=dt;
+      const t=Math.min(revealT/PULLBACK_DURATION,1);
+      const ease=t*t*(3-2*t);
+      worldGroup.scale.setScalar(THREE.MathUtils.lerp(1,0.12,ease));
+      wristGroup.scale.setScalar(THREE.MathUtils.lerp(0.001,2.6,ease));
+      camera.position.lerpVectors(pullbackFromPos, pullbackToPos, ease);
+      camTarget.lerpVectors(pullbackFromTarget, pullbackToTarget, ease);
+      camera.lookAt(camTarget);
+      if(t>=1){
+        revealPhase='closing'; revealT=0;
+        hideText(revealCaptionEl);
+        showText(revealTextA, I18N[currentLang].closing1);
+        setTimeout(function(){ showText(revealTextB, I18N[currentLang].closing2); btnRestart.classList.add('show'); }, 2600);
+      }
+    } else if(revealPhase==='closing'){
+      revealT+=dt;
+      camera.position.x=Math.sin(revealT*0.08)*2;
+      camera.lookAt(camTarget);
+    }
+
+    renderer.render(scene,camera);
+  }
+
+  resize();
+  updateBadges();
+  log('System initialized — awaiting sensor wiring','wire');
+  applyLang(currentLang);
+  applyTheme(currentTheme);
+  animate();
+
+  function updateSceneTheme(theme){
+    if(theme==='dark'){
+      scene.background.set(0x1a2233); scene.fog.color.set(0x1a2233); scene.fog.near=34; scene.fog.far=85;
+      hemi.intensity=0.95; hemi.color.set(0x8fb3d9); dirLight.intensity=1.05; dirLight.color.set(0xdfe8ff);
+    } else {
+      // dusk periwinkle sky matching the C4D reference render
+      scene.background.set(0x93a0c8); scene.fog.color.set(0x93a0c8); scene.fog.near=38; scene.fog.far=95;
+      hemi.intensity=1.15; hemi.color.set(0xdde4f5); dirLight.intensity=1.1; dirLight.color.set(0xffe9d0);
+    }
+  }
+
+  console.log('Wiring: cable-to-pin routing UI ready (CAM/HEAT/MIC/PART)');
+  console.log('Fusion: inference rules active ('+(IS_MOBILE?'mobile perf mode':'desktop mode')+')');
+  console.log('Timeline: person spawn/motion scheduler active');
+  console.log('Sensors: heatmap + vitals + VOC gated by wiring state');
+  console.log('Camera: AUTO/TOP/GATE/SIDE view system ready');
+  console.log('Reveal: privacy -> vessel morph -> wrist pull-back sequence armed');
+})();
+</script>
+</body>
+</html>
