@@ -3,14 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>
-/* Mobile fit: this is a desktop-density editor UI. On narrow screens, render
-   the full 1180px layout scaled to the device (pinch-zoomable) instead of
-   letting panels crop and overlap. */
-if (screen.width < 900) {
-  document.querySelector('meta[name="viewport"]').setAttribute('content', 'width=1180');
-}
-</script>
 <title>SONIC-VISUAL SYNC</title>
 <style>
   :root {
@@ -221,6 +213,24 @@ if (screen.width < 900) {
     transition: opacity .3s; pointer-events: none; max-width: 80vw;
   }
   #toast.show { opacity: 1; }
+
+  /* ---- MOBILE: app-style stacked layout ----
+     Screen on top, clip pool below, timeline docked at the bottom — instead
+     of the desktop three-column arrangement that crams controls into a thin
+     right rail. The canvas and waveform already re-fit on window resize. */
+  @media (max-width: 760px){
+    body{ grid-template-rows: auto minmax(0,1fr) 150px; }
+    header{ flex-wrap: wrap; padding: 8px 10px 8px 104px; gap: 8px; min-height: 48px; }
+    .logo{ font-size: 13px; letter-spacing: 1px; }
+    .stepper{ order: 4; flex: 1 1 100%; }
+    .step{ font-size: 11px; padding: 5px 10px; }
+    #generateBtn{ margin-left: auto; padding: 8px 13px; font-size: 12px; }
+    .ghost-btn{ padding: 7px 10px; font-size: 11px; }
+    .mid{ grid-template-columns: 1fr; grid-template-rows: 36vh minmax(0,1fr); }
+    .clip-panel{ border-top: 1px solid var(--border); }
+    .timeline-panel{ padding: 6px 10px 8px; }
+    .transport{ gap: 8px; }
+  }
 </style>
 </head>
 <body>

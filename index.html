@@ -356,6 +356,11 @@
   .port-vibe::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--pv); }
   .port-vibe .port-tag{ background:var(--pv-soft); color:var(--pv); }
   .port-vibe a{ color:var(--pv); font-weight:600; }
+  .port-count{
+    float:right; margin-left:8px; font-size:10.5px; font-weight:700;
+    color:var(--pv, var(--text-secondary)); background:var(--pv-soft, rgba(120,120,128,.12));
+    padding:2px 8px; border-radius:999px; letter-spacing:.02em;
+  }
   .pv-blue{   --pv:#0a84ff; --pv-soft:rgba(10,132,255,.14); }
   .pv-purple{ --pv:#5e5ce6; --pv-soft:rgba(94,92,230,.14); }
   .pv-teal{   --pv:#1aa87d; --pv-soft:rgba(40,199,106,.15); }
@@ -733,7 +738,7 @@
 
           <h2 class="section-label">Toolkit</h2>
           <div class="card list-card" id="sr-toolkit">
-            <div class="list-row"><div class="icon-badge sm badge-purple"><svg class="icon"><use href="#icon-sparkles"/></svg></div><div><div class="lr-title">AI-Native Prototyping</div><div class="lr-sub">Claude &amp; Claude Code · single-file HTML/JS prototypes · image, audio &amp; 3D generation tools</div></div></div>
+            <div class="list-row"><div class="icon-badge sm badge-purple"><svg class="icon"><use href="#icon-sparkles"/></svg></div><div><div class="lr-title">AI-Native Prototyping &amp; Analysis</div><div class="lr-sub">Claude &amp; Claude Code · image, audio &amp; 3D generation tools · document/image analysis · local on-device models (Ollama)</div></div></div>
             <div class="list-row"><div class="icon-badge sm badge-green"><svg class="icon"><use href="#icon-people"/></svg></div><div><div class="lr-title">Customer Operations</div><div class="lr-sub">KPI &amp; CSAT management · QA calibration · onboarding &amp; training design · workforce scheduling</div></div></div>
             <div class="list-row"><div class="icon-badge sm badge-pink"><svg class="icon"><use href="#icon-cine"/></svg></div><div><div class="lr-title">Media &amp; Audiovisual Literacy</div><div class="lr-sub">Film/TV production background · editing grammar, motion, pacing &amp; sound — applied to every screen I build</div></div></div>
             <div class="list-row"><div class="icon-badge sm badge-blue"><svg class="icon"><use href="#icon-globe"/></svg></div><div><div class="lr-title">Languages</div><div class="lr-sub">Korean — native · English — native-level professional</div></div></div>
@@ -968,6 +973,12 @@
             <p>Everything here — this résumé app and every prototype linked above — took under 12 hours of total working time, orchestrating Claude alongside other AI tools for images, audio, and 3D assets. The craft isn't typing code; it's knowing exactly what to ask for, judging what comes back with a producer's eye, and iterating until it feels right.</p>
           </div>
 
+          <div class="card port-card" id="port-beyond">
+            <div class="port-tag">Where this goes next</div>
+            <h3>Beyond the Screen — AI as an Operating Skill</h3>
+            <p>Prototyping is the visible half of how I work with AI. The same directing skill applies to the invisible half: deep, structured analysis of documents and images; local on-device models (Ollama and similar) where privacy or cost demands it; and turning broad, messy information into business-ready strategy. I haven't had a production stage for that side of the work yet — which is exactly the kind of stage I'm looking for. What the projects above prove is the transferable part: I can design the method, judge the output, and iterate until it actually solves the problem.</p>
+          </div>
+
           <div class="card port-card meta" id="port-meta">
             <h3>This Résumé</h3>
             <p>You're looking at another artifact. This entire résumé is one self-contained HTML file — same method, same tools, same instinct for turning an idea into something you can click through instead of read about.</p>
@@ -1117,14 +1128,51 @@
     var h = (location.hash || '').replace(/^#/, '');
     return TAB_ORDER.indexOf(h) !== -1 ? h : null;
   }
+
+  /* Remember the Portfolio scroll position when leaving for a prototype, so
+     the "← Résumé" round trip lands exactly where the visitor clicked —
+     ready to scroll on to the next project instead of hunting from the top. */
+  var SCROLL_KEY = 'resumePortfolioScroll';
+  document.querySelectorAll('#panel-portfolio a[href]').forEach(function(a){
+    a.addEventListener('click', function(){
+      try{ sessionStorage.setItem(SCROLL_KEY, String(mainScroll.scrollTop)); }catch(e){}
+    });
+  });
+
   (function initFromHash(){
     var t = tabFromHash();
-    if(t) switchTab(t);
+    if(!t) return;
+    switchTab(t);
+    if(t === 'portfolio'){
+      var saved = null;
+      try{
+        saved = sessionStorage.getItem(SCROLL_KEY);
+        sessionStorage.removeItem(SCROLL_KEY);
+      }catch(e){}
+      if(saved){
+        requestAnimationFrame(function(){ mainScroll.scrollTop = parseFloat(saved) || 0; });
+      }
+    }
   })();
   window.addEventListener('hashchange', function(){
     var t = tabFromHash();
     if(t) switchTab(t);
   });
+
+  /* ===== Auto-number the vibe-coded project cards ("1 / 4" …) =====
+     Counts .port-vibe cards at runtime, so adding a new card via the HTML
+     template renumbers everything automatically. */
+  (function numberProjects(){
+    var cards = document.querySelectorAll('#panel-portfolio .port-vibe');
+    cards.forEach(function(card, i){
+      var h = card.querySelector('h3');
+      if(!h) return;
+      var s = document.createElement('span');
+      s.className = 'port-count';
+      s.textContent = (i + 1) + ' / ' + cards.length;
+      h.appendChild(s);
+    });
+  })();
 
   document.querySelector('.tabbar').addEventListener('keydown', function(e){
     var current = document.activeElement;
@@ -1288,6 +1336,7 @@
     { tab:'portfolio', id:'port-item-3', icon:'icon-portfolio', title:'Reading the World — From Signal to Meaning', snippet:'Interactive Arduino sensor console — how physical signals become data and meaning.' },
     { tab:'portfolio', id:'port-item-4', icon:'icon-portfolio', title:'When Technology Becomes a Medium', snippet:'A music-video generator and a transition designer — creative tools built with code.' },
     { tab:'portfolio', id:'port-how', icon:'icon-sparkles', title:'Under 12 Hours, No Traditional Code', snippet:'Non-developer directing Claude and other AI tools with a media producer\'s audiovisual eye.' },
+    { tab:'portfolio', id:'port-beyond', icon:'icon-sparkles', title:'Beyond the Screen — AI as an Operating Skill', snippet:'Document & image analysis, local on-device models (Ollama), turning messy information into strategy.' },
     { tab:'portfolio', id:'port-meta', icon:'icon-portfolio', title:'This Résumé', snippet:'The résumé itself is an applied-prototyping artifact — one self-contained HTML file.' },
     { tab:'contact', id:'sr-contact', icon:'icon-contact', title:'Contact Details', snippet:'Email, phone, LinkedIn, portfolio, location, work authorization.' }
   ];

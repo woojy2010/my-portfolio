@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Smart Sensor Gate — Simulation Console</title>
 <style>
   :root, [data-theme="dark"]{
@@ -34,13 +34,13 @@
   button.ctrl:hover{border-color:var(--ink2);}
 
   #app{flex:1;min-height:0;display:flex;flex-direction:row;overflow:hidden;}
-  @media (max-width:900px){
+  @media (max-width:760px){
     html,body{height:auto;overflow:visible;}
     #app{flex-direction:column;height:auto;overflow:visible;}
   }
 
   #viewport{flex:1 1 58%;min-width:0;position:relative;background:#000;}
-  @media (max-width:900px){ #viewport{flex:0 0 46vh;} }
+  @media (max-width:760px){ #viewport{flex:0 0 46vh;} }
   canvas#gl{display:block;width:100%;height:100%;}
 
   #viewHud{position:absolute;top:10px;left:10px;background:rgba(13,13,13,.6);border:1px solid var(--border);
@@ -54,7 +54,7 @@
   #viewHud .heat .swatch.on{background:var(--heat);color:var(--heat);}
   #viewHud .mic .swatch.on{background:var(--mic);color:var(--mic);}
   #viewHud .part .swatch.on{background:var(--part);color:var(--part);}
-  @media (max-width:900px){
+  @media (max-width:760px){
     #viewHud{top:6px;left:6px;right:6px;display:flex;gap:4px;padding:5px 6px;line-height:1.35;}
     #viewHud .row{flex:1;flex-direction:column;align-items:flex-start;gap:1px;font-size:9px;min-width:0;}
     #viewHud .row span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
@@ -65,7 +65,7 @@
     font-size:12px;color:#fff;pointer-events:none;backdrop-filter:blur(2px);z-index:3;
     transition:opacity .4s ease;line-height:1.5;}
   #inferToast .conf{color:var(--warn);font-weight:600;margin-left:6px;font-variant-numeric:tabular-nums;}
-  @media (max-width:900px){
+  @media (max-width:760px){
     #inferToast{left:6px;right:6px;max-width:none;bottom:8px;font-size:11px;padding:6px 10px;}
     #revealBtnWrap{bottom:52px;}
   }
@@ -79,7 +79,7 @@
   .inferRow.top .txt{color:var(--ink);font-weight:600;}
 
   #camViews{position:absolute;top:10px;right:10px;display:flex;gap:4px;z-index:3;transition:opacity .4s ease;}
-  @media (max-width:900px){ #camViews{top:58px;right:6px;} #camViews button{padding:4px 7px;font-size:9px;} }
+  @media (max-width:760px){ #camViews{top:58px;right:6px;} #camViews button{padding:4px 7px;font-size:9px;} }
   #camViews.hidden{opacity:0;pointer-events:none;}
   #camViews button{background:rgba(13,13,13,.6);color:#cfd3d6;border:1px solid var(--border);
     padding:5px 9px;font-size:10px;letter-spacing:.04em;border-radius:5px;cursor:pointer;backdrop-filter:blur(2px);}
@@ -110,7 +110,7 @@
   #dashboard{flex:1 1 42%;min-width:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;
     gap:10px;background:var(--page);transition:opacity .8s ease;}
   #dashboard.dimmed{opacity:0.3;}
-  @media (max-width:900px){ #dashboard{flex:none;overflow-y:visible;} }
+  @media (max-width:760px){ #dashboard{flex:none;overflow-y:visible;} }
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;flex-shrink:0;}
   .cardHead{font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:600;
@@ -367,7 +367,7 @@
     }
   };
   const LIVE={ko:{live:'LIVE',track:'추적중',off:'신호없음'},en:{live:'LIVE',track:'TRACKING',off:'NO SIGNAL'}};
-  let currentLang=localStorage.getItem('gate_lang')||'en';
+  let currentLang='en'; // always open in English; toggle still works in-session
   let currentTheme=localStorage.getItem('gate_theme')||'light';
 
   function applyLang(lang){
